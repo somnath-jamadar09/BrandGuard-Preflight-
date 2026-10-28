@@ -1,4 +1,4 @@
-import { useOrg } from '../../context/OrgContext';
+import { useOrg } from '../../context/useOrg';
 import AIUseNotice from './AIUseNotice';
 import './TopBar.css';
 

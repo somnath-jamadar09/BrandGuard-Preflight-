@@ -5,14 +5,15 @@ import './SourceList.css';
 const TYPES = ['all', 'guideline', 'fact-sheet', 'glossary', 'past-content'];
 const STATUSES = ['all', 'ready', 'processing', 'error', 'expired'];
 
-export default function SourceList({ sources, loading, selectedId, onSelect }) {
+export default function SourceList({ sources = [], loading, selectedId, onSelect }) {
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterOwner, setFilterOwner] = useState('');
 
-  const owners = [...new Set(sources.map((s) => s.ownerName).filter(Boolean))];
+  const safeSources = Array.isArray(sources) ? sources : [];
+  const owners = [...new Set(safeSources.map((s) => s.ownerName).filter(Boolean))];
 
-  const visible = sources.filter((s) => {
+  const visible = safeSources.filter((s) => {
     if (filterType !== 'all' && s.type !== filterType) return false;
     if (filterStatus !== 'all' && s.status !== filterStatus) return false;
     if (filterOwner && s.ownerName !== filterOwner) return false;

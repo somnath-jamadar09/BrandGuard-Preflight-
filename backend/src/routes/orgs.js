@@ -1,38 +1,23 @@
-/**
- * orgs.js — Organisation and settings management API routes.
- *
- * Exposes:
- *   GET   /v1/orgs/settings  — Retrieve organisation settings (e.g., rules_only, allowExternalModel)
- *   PATCH /v1/orgs/settings  — Update organisation settings (e.g., toggle rules_only mode)
- */
-
 'use strict';
 
 const express = require('express');
 const Org = require('../models/Org');
 const { authenticate } = require('../middleware/auth');
 const { orgIsolation } = require('../middleware/orgIsolation');
-const { requireRole } = require('../middleware/rbac');
+const { requireRole, CAN_MANAGE_ORG } = require('../middleware/rbac');
+const { getOrgId, sendError } = require('../utils/response');
 
 const router = express.Router();
 
 router.use(authenticate, orgIsolation);
 
-/**
- * GET /v1/orgs/settings
- *
- * Retrieves current settings for the authenticated organisation.
- */
 router.get('/settings', async (req, res, next) => {
   try {
-    const orgId = req.org?._id || req.orgId;
+    const orgId = getOrgId(req);
     const org = await Org.findById(orgId).select('name slug settings watchlist active').lean();
 
     if (!org) {
-      return res.status(404).json({
-        success: false,
-        error: 'Organisation not found.',
-      });
+      return sendError(res, 404, null, 'Organisation not found.');
     }
 
     return res.status(200).json({
@@ -55,15 +40,9 @@ router.get('/settings', async (req, res, next) => {
   }
 });
 
-/**
- * PATCH /v1/orgs/settings
- *
- * Updates organisation settings (e.g. toggling rules_only).
- * Requires manager or admin role.
- */
-router.patch('/settings', requireRole('manager'), async (req, res, next) => {
+router.patch('/settings', requireRole(CAN_MANAGE_ORG), async (req, res, next) => {
   try {
-    const orgId = req.org?._id || req.orgId;
+    const orgId = getOrgId(req);
     const { rules_only, allowExternalModel, shelfLifeWarnDays, maxUploadBytes, watchlist } = req.body;
 
     const updateFields = {};
@@ -92,10 +71,7 @@ router.patch('/settings', requireRole('manager'), async (req, res, next) => {
       .lean();
 
     if (!updatedOrg) {
-      return res.status(404).json({
-        success: false,
-        error: 'Organisation not found.',
-      });
+      return sendError(res, 404, null, 'Organisation not found.');
     }
 
     return res.status(200).json({
@@ -119,3 +95,4 @@ router.patch('/settings', requireRole('manager'), async (req, res, next) => {
 });
 
 module.exports = router;
+

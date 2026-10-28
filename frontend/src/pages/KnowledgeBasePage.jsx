@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AppLayout from '../components/layout/AppLayout';
 import SourceList from '../components/knowledge/SourceList';
 import SourceUploader from '../components/knowledge/SourceUploader';
-import { getSources } from '../api/sources';
+import { getSources, getSource } from '../api/sources';
+import { unwrapArray, unwrapData } from '../api/unwrap';
+import { USE_MOCK, SAMPLE_SOURCES } from '../utils/mocks';
 import './KnowledgeBasePage.css';
 
 export default function KnowledgeBasePage() {
@@ -12,27 +14,91 @@ export default function KnowledgeBasePage() {
   const [selected, setSelected] = useState(null);
   const [showUploader, setShowUploader] = useState(false);
 
-  async function loadSources() {
+  const refreshSources = useCallback(async () => {
     setLoading(true);
     setFetchError('');
     try {
-      const { data } = await getSources();
-      setSources(Array.isArray(data) ? data : (data?.data || []));
-    } catch {
-      setFetchError('Failed to load sources. Please try again.');
+      const res = await getSources();
+      let list = unwrapArray(res);
+      if ((!list || list.length === 0) && USE_MOCK) {
+        list = SAMPLE_SOURCES;
+      }
+      setSources(list || []);
+      // If currently selected source is no longer present, keep or clear
+      if (selected) {
+        const stillPresent = list?.find((s) => s._id === selected._id);
+        if (stillPresent) {
+          setSelected((prev) => ({ ...stillPresent, ...prev }));
+        }
+      }
+    } catch (err) {
+      if (USE_MOCK) {
+        setSources(SAMPLE_SOURCES);
+      } else {
+        const msg =
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          'Failed to load sources. Please try again.';
+        setFetchError(msg);
+      }
     } finally {
       setLoading(false);
     }
-  }
+  }, [selected]);
 
-  useEffect(() => { loadSources(); }, []);
+  useEffect(() => {
+    let ignore = false;
+    async function loadInitial() {
+      setLoading(true);
+      setFetchError('');
+      try {
+        const res = await getSources();
+        if (ignore) return;
+        let list = unwrapArray(res);
+        if ((!list || list.length === 0) && USE_MOCK) {
+          list = SAMPLE_SOURCES;
+        }
+        setSources(list || []);
+      } catch (err) {
+        if (ignore) return;
+        if (USE_MOCK) {
+          setSources(SAMPLE_SOURCES);
+        } else {
+          const msg =
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            'Failed to load sources. Please try again.';
+          setFetchError(msg);
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    loadInitial();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
-  function handleSelect(source) {
-    setSelected((prev) => prev?._id === source._id ? null : source);
+  async function handleSelect(source) {
+    if (selected?._id === source._id) {
+      setSelected(null);
+      return;
+    }
+    setSelected(source);
+    try {
+      const res = await getSource(source._id);
+      const detail = unwrapData(res);
+      if (detail) {
+        setSelected((prev) => (prev?._id === source._id ? { ...prev, ...detail } : prev));
+      }
+    } catch {
+      // Non-fatal; retain already selected source item
+    }
   }
 
   function handleUploaded() {
-    loadSources();
+    refreshSources();
   }
 
   return (
@@ -52,8 +118,8 @@ export default function KnowledgeBasePage() {
 
       {fetchError && (
         <div className="kb-error" role="alert">
-          {fetchError}
-          <button className="btn btn-secondary" onClick={loadSources} style={{ marginLeft: 12 }}>
+          <span>{fetchError}</span>
+          <button className="btn btn-secondary kb-retry-btn" onClick={refreshSources}>
             Retry
           </button>
         </div>
@@ -72,7 +138,12 @@ export default function KnowledgeBasePage() {
         <aside className="kb-detail-col card">
           {selected ? (
             <div className="kb-detail">
-              <h2 className="kb-detail-title">{selected.fileName}</h2>
+              <h2 className="kb-detail-title">{selected.title || selected.fileName}</h2>
+              {selected.title && selected.fileName && selected.title !== selected.fileName && (
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-body-sm)', marginBottom: 'var(--space-3)' }}>
+                  {selected.fileName}
+                </p>
+              )}
 
               <dl className="kb-detail-meta">
                 <dt>Type</dt>
@@ -86,8 +157,22 @@ export default function KnowledgeBasePage() {
                 <dt>Expires</dt>
                 <dd>{selected.expiryDate ? new Date(selected.expiryDate).toLocaleDateString() : '—'}</dd>
                 <dt>Status</dt>
-                <dd><span className="badge badge-status-checked">{selected.status}</span></dd>
+                <dd><span className="badge badge-status-checked">{selected.status || 'ready'}</span></dd>
               </dl>
+
+              {selected.downloadUrl && (
+                <div style={{ marginTop: 'var(--space-4)' }}>
+                  <a
+                    href={selected.downloadUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    download
+                  >
+                    Download document
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <div className="empty-state">

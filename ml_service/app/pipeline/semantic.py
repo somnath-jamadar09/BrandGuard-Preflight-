@@ -89,6 +89,6 @@ def rank_semantically(query: str, passages: list[dict[str, Any]], top_k: int = 5
                 continue
             ranked.append({**passages[int(position)], "score": float(score), "retrievalMethod": "faiss"})
         return ranked
-    except Exception as error:
+    except (ImportError, OSError, RuntimeError, ValueError, KeyError) as error:
         _LOG.warning("Semantic retrieval unavailable; using lexical fallback (%s)", type(error).__name__)
         return None

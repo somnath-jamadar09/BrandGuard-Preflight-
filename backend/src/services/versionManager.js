@@ -1,15 +1,3 @@
-/**
- * versionManager.js — Draft Version Management Service.
- *
- * Implements FR-DS-04, FR-WF-04, and Block 6 versionManager specifications:
- *   - Create new DraftVersion on each accepted fix:
- *       - Increments version number
- *       - Stores new SHA-256 contentHash
- *       - Computes text diff comparing previous version to new version
- *   - Unified text diff computation (computeTextDiff, computeLineDiff)
- *   - Version history retrieval (getVersions)
- *   - Exposes version history via GET /v1/drafts/:id/versions
- */
 
 'use strict';
 

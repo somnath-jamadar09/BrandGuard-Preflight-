@@ -19,8 +19,7 @@
 
 const mongoose = require('mongoose');
 
-// ── Enum constants (exported for use in routes / orchestrator) ───────────────
-
+// Enum constants (exported for use in routes / orchestrator)
 const FACT_CATEGORIES = [
   'product',
   'pricing',
@@ -35,7 +34,7 @@ const FACT_CATEGORIES = [
 
 const FACT_STATUSES = ['active', 'expired', 'archived', 'draft'];
 
-// ── Schema ────────────────────────────────────────────────────────────────────
+// Fact schema
 
 const factSchema = new mongoose.Schema(
   {
@@ -161,22 +160,18 @@ const factSchema = new mongoose.Schema(
   }
 );
 
-// ── Compound indexes for tenant-scoped queries ─────────────────────────────
-
+// Compound indexes for tenant-scoped queries
 factSchema.index({ orgId: 1, status: 1 });
 factSchema.index({ orgId: 1, category: 1 });
 factSchema.index({ orgId: 1, ownerId: 1 });
 factSchema.index({ orgId: 1, expiresAt: 1 });
 factSchema.index({ orgId: 1, createdAt: -1 });
 
-// ── Virtual: isExpired ─────────────────────────────────────────────────────
-
+// Virtual: isExpired
 factSchema.virtual('isExpired').get(function () {
   if (!this.expiresAt) return false;
   return new Date() > this.expiresAt;
 });
-
-// ── Model ──────────────────────────────────────────────────────────────────
 
 const Fact = mongoose.model('Fact', factSchema);
 

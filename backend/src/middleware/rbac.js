@@ -1,20 +1,4 @@
-/**
- * rbac.js — Role-Based Access Control (RBAC) middleware.
- *
- * Implements the requireRole factory middleware to enforce role permissions
- * across BrandGuard Preflight API endpoints.
- *
- * Supported Roles (per SRS FR-WF-01 & Architectural Blueprint):
- *   - admin / knowledge_owner : Full system and organisation privileges
- *   - brand_manager / manager : Review and approval authority, change requests
- *   - reviewer / authorised_reviewer : Expert review of risky topics & rulings
- *   - creator / editor : Content draft authoring, source management
- *   - viewer : Read-only observer access
- */
 
-/**
- * Role hierarchy levels (higher number = greater privilege).
- */
 const ROLE_HIERARCHY = {
   viewer: 0,
   creator: 1,
@@ -30,9 +14,7 @@ const ROLE_HIERARCHY = {
   superadmin: 4,
 };
 
-/**
- * Role aliases mapping canonical keys to equivalent synonyms.
- */
+
 const ROLE_ALIASES = {
   admin: ['admin', 'knowledge_owner', 'owner', 'superadmin'],
   knowledge_owner: ['admin', 'knowledge_owner', 'owner', 'superadmin'],
@@ -121,40 +103,42 @@ function hasRole(userRole, requiredRoles) {
  * @param {...(string|string[])} roles - One or more allowed roles or arrays of roles.
  * @returns {import('express').RequestHandler}
  */
+const { sendError } = require('../utils/response');
+
+const CAN_SUBMIT_DRAFT = ['creator', 'editor', 'manager', 'admin', 'owner'];
+const CAN_REVIEW = ['creator', 'editor', 'manager', 'reviewer', 'admin', 'owner'];
+const CAN_MANAGE_SOURCE = ['creator', 'editor', 'manager', 'reviewer', 'admin', 'owner'];
+const CAN_EDIT_SOURCE = ['manager', 'reviewer', 'admin', 'knowledge_owner'];
+const CAN_UPDATE_FINDING = ['creator', 'reviewer', 'brand_manager', 'manager', 'admin', 'owner'];
+const CAN_MANAGE_FACTS = ['knowledge_owner', 'admin'];
+const CAN_APPROVE = ['manager'];
+const CAN_OVERRIDE = ['reviewer', 'manager'];
+const CAN_MANAGE_ORG = ['manager'];
+
 function requireRole(...roles) {
-  // Flatten arguments to support both ('admin', 'manager') and (['admin', 'manager'])
   const allowedRoles = roles.flat().filter(Boolean);
 
   return function rbacMiddleware(req, res, next) {
     const user = req.user;
 
-    // Authentication must run before role evaluation
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required. No user context found.',
-        code: 'UNAUTHENTICATED',
-      });
+      return sendError(res, 401, 'UNAUTHENTICATED', 'Authentication required. No user context found.');
     }
 
     const userRole = user.role || req.token?.role;
 
     if (!userRole) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: User has no assigned role.',
-        code: 'NO_ROLE_ASSIGNED',
-      });
+      return sendError(res, 403, 'NO_ROLE_ASSIGNED', 'Forbidden: User has no assigned role.');
     }
 
     if (allowedRoles.length > 0 && !hasRole(userRole, allowedRoles)) {
-      return res.status(403).json({
-        success: false,
-        error: `Forbidden: Insufficient privileges. Required role: ${allowedRoles.join(' or ')}.`,
-        code: 'ROLE_INSUFFICIENT',
-        requiredRoles: allowedRoles,
-        userRole,
-      });
+      return sendError(
+        res,
+        403,
+        'ROLE_INSUFFICIENT',
+        `Forbidden: Insufficient privileges. Required role: ${allowedRoles.join(' or ')}.`,
+        { requiredRoles: allowedRoles, userRole }
+      );
     }
 
     return next();
@@ -167,4 +151,14 @@ module.exports = {
   normalizeRole,
   ROLE_HIERARCHY,
   ROLE_ALIASES,
+  CAN_SUBMIT_DRAFT,
+  CAN_REVIEW,
+  CAN_MANAGE_SOURCE,
+  CAN_EDIT_SOURCE,
+  CAN_UPDATE_FINDING,
+  CAN_MANAGE_FACTS,
+  CAN_APPROVE,
+  CAN_OVERRIDE,
+  CAN_MANAGE_ORG,
 };
+

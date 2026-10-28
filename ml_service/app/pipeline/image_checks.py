@@ -157,6 +157,6 @@ def analyze_image(payload: dict) -> list[dict]:
                 "detectedText": text[:1000],
                 "details": "OCR found text; verify it against the approved copy." if text else "No embedded text was detected by OCR.",
             })
-        except Exception:
+        except (ImportError, OSError, RuntimeError, ValueError):
             results.append({"checkType": "embedded-text", "passed": False, "status": "skipped", "details": "OCR is unavailable; embedded-text analysis could not be completed."})
     return results

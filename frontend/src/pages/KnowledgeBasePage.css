@@ -22,6 +22,10 @@
   margin-bottom: var(--space-4);
 }
 
+.kb-retry-btn {
+  margin-left: var(--space-3);
+}
+
 .kb-layout {
   display: grid;
   grid-template-columns: 3fr 2fr;

@@ -14,13 +14,12 @@
 
 const mongoose = require('mongoose');
 
-// ── Enum constants (exported for use in routes / orchestrator) ───────────────
-
-const FINDING_TYPES    = ['violation', 'question'];
+// Enum constants (exported for use in routes / orchestrator)
+const FINDING_TYPES = ['violation', 'question'];
 const FINDING_STATUSES = ['open', 'accepted', 'edited', 'dismissed', 'escalated'];
 const FINDING_VERDICTS = ['Supported', 'Contradicted', 'Outdated', 'Not Found', 'Unclear'];
 
-// ── Sub-document schema: MeaningCheck ────────────────────────────────────────
+// Sub-document schemas
 
 const meaningCheckSchema = new mongoose.Schema(
   {
@@ -57,7 +56,7 @@ const evidenceSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ── Main schema ───────────────────────────────────────────────────────────────
+// Main finding schema
 
 const findingSchema = new mongoose.Schema(
   {
@@ -217,14 +216,13 @@ const findingSchema = new mongoose.Schema(
   }
 );
 
-// ── Compound indexes for tenant-scoped queries ─────────────────────────────
+// Compound indexes for tenant-scoped queries
 findingSchema.index({ orgId: 1, draftId: 1 });
 findingSchema.index({ orgId: 1, draftVersionId: 1 });
 findingSchema.index({ orgId: 1, status: 1 });
 findingSchema.index({ orgId: 1, verdict: 1 });
 findingSchema.index({ orgId: 1, createdAt: -1 });
 
-// ── Model ──────────────────────────────────────────────────────────────────
 const Finding = mongoose.model('Finding', findingSchema);
 
 Finding.FINDING_TYPES    = FINDING_TYPES;

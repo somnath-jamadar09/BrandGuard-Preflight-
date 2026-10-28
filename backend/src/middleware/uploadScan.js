@@ -1,14 +1,3 @@
-/**
- * uploadScan.js — Upload scanning and validation middleware.
- *
- * Enforces:
- *   1. File-type allow-list (.pdf, .docx, .md, .markdown)
- *   2. File size cap of 10 MB (10 * 1024 * 1024 bytes)
- *   3. Anti-virus (AV) scan stub before proceeding to storage/parsing
- *
- * Uses Multer memoryStorage so files remain in-memory buffers for
- * immediate scanning and direct streaming to MinIO.
- */
 
 const path = require('path');
 const multer = require('multer');
@@ -102,75 +91,50 @@ const upload = multer({
   },
 }).single('file');
 
-/**
- * uploadScan — Express middleware for upload verification.
- */
+const { sendError } = require('../utils/response');
+const FILE_TOO_LARGE_MESSAGE = `File size exceeds ${Math.round(MAX_FILE_SIZE / (1024 * 1024))} MB limit.`;
+
 function uploadScan(req, res, next) {
   upload(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({
-          success: false,
-          error: 'File size exceeds 10 MB limit.',
-          code: 'FILE_TOO_LARGE',
-        });
+        return sendError(res, 400, 'FILE_TOO_LARGE', FILE_TOO_LARGE_MESSAGE);
       }
-      return res.status(400).json({
-        success: false,
-        error: `Upload error: ${err.message}`,
-        code: 'UPLOAD_ERROR',
-      });
+      return sendError(res, 400, 'UPLOAD_ERROR', `Upload error: ${err.message}`);
     } else if (err) {
       if (err.code === 'INVALID_FILE_TYPE') {
-        return res.status(400).json({
-          success: false,
-          error: err.message,
-          code: 'INVALID_FILE_TYPE',
-        });
+        return sendError(res, 400, 'INVALID_FILE_TYPE', err.message);
       }
-      return res.status(400).json({
-        success: false,
-        error: err.message || 'File upload failed.',
-        code: 'UPLOAD_ERROR',
-      });
+      return sendError(res, 400, 'UPLOAD_ERROR', err.message || 'File upload failed.');
     }
 
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'No file uploaded. A source file (.pdf, .docx, .md) is required.',
-        code: 'MISSING_FILE',
-      });
+      return sendError(
+        res,
+        400,
+        'MISSING_FILE',
+        'No file uploaded. A source file (.pdf, .docx, .md) is required.'
+      );
     }
 
-    // Defensive check on size
     if (req.file.size > MAX_FILE_SIZE) {
-      return res.status(400).json({
-        success: false,
-        error: 'File size exceeds 10 MB limit.',
-        code: 'FILE_TOO_LARGE',
-      });
+      return sendError(res, 400, 'FILE_TOO_LARGE', FILE_TOO_LARGE_MESSAGE);
     }
 
-    // Secondary validation check
     const typeCheck = validateFileType(req.file.originalname, req.file.mimetype);
     if (!typeCheck.valid) {
-      return res.status(400).json({
-        success: false,
-        error: typeCheck.error,
-        code: 'INVALID_FILE_TYPE',
-      });
+      return sendError(res, 400, 'INVALID_FILE_TYPE', typeCheck.error);
     }
 
-    // Anti-virus scan
     try {
       await performAvScan(req.file.buffer, req.file.originalname);
     } catch (avErr) {
-      return res.status(400).json({
-        success: false,
-        error: avErr.message || 'Anti-virus scan rejected this file.',
-        code: 'AV_SCAN_FAILED',
-      });
+      return sendError(
+        res,
+        400,
+        'AV_SCAN_FAILED',
+        avErr.message || 'Anti-virus scan rejected this file.'
+      );
     }
 
     return next();
@@ -186,3 +150,4 @@ module.exports = {
   ALLOWED_MIME_TYPES,
   EICAR_SIGNATURE,
 };
+

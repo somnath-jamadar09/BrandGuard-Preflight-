@@ -1,12 +1,3 @@
-/**
- * insightsAggregator.js — Governance & Compliance Insights Aggregator Service.
- *
- * Implements FR-IN-01, FR-IN-02, FR-IN-03 & Architectural Blueprint:
- * Aggregates organisation-scoped compliance metrics across findings, drafts, and audit logs:
- *   - Per-rule flag counts, override counts, and override rate (Guideline Debugger data)
- *   - Most repeated mistake categories with representative top examples
- *   - Time-to-approval metrics (average, median, min, max, count)
- */
 
 'use strict';
 

@@ -11,17 +11,17 @@
 
 require('dotenv').config();
 
+const path    = require('path');
 const express = require('express');
 const cors    = require('cors');
 
 const { connectDB }   = require('./utils/db');
 const { ensureBucket } = require('./utils/minio');
 
-// ── Express app ──────────────────────────────────────────────────────────────
-const app  = express();
+const app = express();
 const PORT = process.env.PORT || process.env.API_PORT || 4000;
 
-// ── Global middleware ────────────────────────────────────────────────────────
+// Global middleware
 const corsOrigins = process.env.CORS_ALLOWED_ORIGINS
   ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
   : '*';
@@ -29,14 +29,13 @@ const corsOrigins = process.env.CORS_ALLOWED_ORIGINS
 app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json({ limit: process.env.UPLOAD_MAX_BYTES ? `${process.env.UPLOAD_MAX_BYTES}b` : '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
-// ── Routes ───────────────────────────────────────────────────────────────────
-// Healthcheck — intentionally before any auth middleware so load-balancers
-// and Docker Compose health probes can reach it unauthenticated.
+// System routes
 app.get('/health', (_req, res) => {
   res.status(200).json({
-    status:    'healthy',
-    service:   'brandguard-api',
+    status: 'healthy',
+    service: 'brandguard-api',
     timestamp: new Date().toISOString(),
   });
 });
@@ -45,7 +44,7 @@ app.get('/', (_req, res) => {
   res.json({ name: 'BrandGuard Preflight API', version: '1.0.0', status: 'running' });
 });
 
-// ── Feature routes ──────────────────────────────────────────────────────────
+// Feature routes
 const authRouter = require('./routes/auth');
 app.use('/v1/auth', authRouter);
 
@@ -73,13 +72,12 @@ app.use('/v1/orgs', orgsRouter);
 const gateRouter = require('./routes/gate');
 app.use('/v1/gate', gateRouter);
 
-// ── Error handling middleware ────────────────────────────────────────────────
+// Error handling middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-
-// ── Startup ──────────────────────────────────────────────────────────────────
+// Startup
 async function start() {
   try {
     console.log('[server] Connecting to MongoDB…');

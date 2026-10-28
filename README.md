@@ -211,6 +211,7 @@ The ML Engine binds to loopback (`127.0.0.1:8000`) for local diagnostics and is 
 ```bash
 cd backend
 npm install
+npm run seed # Seeds demo organisations, users, sources, and drafts (entry point: backend/seed.js; root seed.js forwards here)
 npm run dev
 # Server listening on http://localhost:4000
 ```

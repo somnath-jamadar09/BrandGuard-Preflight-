@@ -185,7 +185,7 @@ async function seedDemoData({ force = false } = {}) {
       orgId: org._id,
       label: 'Standard Return Window',
       statement: 'As of Q1 2026 the standard return window is 30 days.',
-      category: 'policy',
+      category: 'compliance',
       status: 'active',
       expiresAt: new Date('2027-06-30'),
       sourceRef: 'Stellara_Returns_Policy_v4.pdf (Page 5)',
@@ -341,6 +341,13 @@ async function seedDemoData({ force = false } = {}) {
     ];
 
     for (const f of findingsData) {
+      if (!f.span && f.draftSpan) {
+        const start = draftContent.indexOf(f.draftSpan);
+        f.span = {
+          start: start >= 0 ? start : 0,
+          end: start >= 0 ? start + f.draftSpan.length : f.draftSpan.length,
+        };
+      }
       const finding = new Finding(f);
       await finding.save();
     }

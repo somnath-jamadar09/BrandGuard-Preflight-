@@ -9,43 +9,77 @@ _LOG = logging.getLogger(__name__)
 _NLI_MODEL = None
 _NLI_MODEL_NAME = None
 
+DEFAULT_ENTAILMENT_THRESHOLD = 0.72
+DEFAULT_CONTRADICTION_THRESHOLD = 0.72
+DEFAULT_LABEL_ORDER = ["contradiction", "entailment", "neutral"]
+
+def _load_model(model_name: str, device: str = "cpu"):
+    """Load and cache the CrossEncoder instance. Thread-safe for read inference."""
+    global _NLI_MODEL, _NLI_MODEL_NAME
+    from sentence_transformers import CrossEncoder
+    if _NLI_MODEL is None or _NLI_MODEL_NAME != model_name:
+        _NLI_MODEL = CrossEncoder(model_name, device=device, max_length=512)
+        _NLI_MODEL_NAME = model_name
+    return _NLI_MODEL
+
+def _label_scores(model: Any, passage_text: str, claim_text: str, label_order: list[str]) -> dict[str, float]:
+    """Execute forward pass and map softmax probabilities to canonical label names."""
+    scores = model.predict([(passage_text, claim_text)], apply_softmax=True)
+    row = scores[0].tolist() if hasattr(scores[0], "tolist") else list(scores[0])
+    config = getattr(getattr(model, "model", None), "config", None)
+    mapping = getattr(config, "id2label", {}) or {}
+    labels = {int(index): str(label).lower() for index, label in mapping.items()}
+
+    # WHY: Some pretrained NLI checkpoints export generic 'label_0' / 'label_1'.
+    # In those cases, fall back to the standard MNLI ordering (contradiction, entailment, neutral).
+    if not labels or all(label.startswith("label_") for label in labels.values()):
+        labels = {index: label for index, label in enumerate(label_order)}
+
+    return {labels.get(index, f"label_{index}"): float(score) for index, score in enumerate(row)}
+
+def _verdict_from_scores(probs: dict[str, float], entail_cutoff: float, contradiction_cutoff: float) -> tuple[str, float]:
+    """Translate label probabilities into BrandGuard verdicts (Supported, Contradicted, Not Found)."""
+    def find_score(fragment: str) -> float:
+        return max((score for label, score in probs.items() if fragment in label), default=0.0)
+
+    entailment = find_score("entail")
+    contradiction = find_score("contrad")
+    neutral = find_score("neutral")
+
+    # WHY: A 0.72 threshold is calibrated to prevent false positives in high-stakes brand governance.
+    # When neither entailment nor contradiction exceeds 0.72, the claim is treated as unverified ("Not Found").
+    if entailment >= entail_cutoff:
+        return "Supported", entailment
+    elif contradiction >= contradiction_cutoff:
+        return "Contradicted", contradiction
+    else:
+        return "Not Found", max(neutral, 1.0 - entailment - contradiction, 0.0)
+
 def _nli_prediction(claim_text: str, passage_text: str) -> dict[str, Any] | None:
     """Run a configured sentence-transformers NLI cross-encoder on premise/hypothesis."""
-    global _NLI_MODEL, _NLI_MODEL_NAME
     model_name = os.getenv("NLI_MODEL_NAME", "").strip()
     if not model_name or os.getenv("NLI_ENABLED", "true").lower() not in {"1", "true", "yes"}:
         return None
+
     try:
-        from sentence_transformers import CrossEncoder
-        if _NLI_MODEL is None or _NLI_MODEL_NAME != model_name:
-            _NLI_MODEL = CrossEncoder(model_name, device=os.getenv("NLI_DEVICE", "cpu"), max_length=512)
-            _NLI_MODEL_NAME = model_name
-        scores = _NLI_MODEL.predict([(passage_text, claim_text)], apply_softmax=True)
-        row = scores[0].tolist() if hasattr(scores[0], "tolist") else list(scores[0])
-        config = getattr(getattr(_NLI_MODEL, "model", None), "config", None)
-        mapping = getattr(config, "id2label", {}) or {}
-        labels = {int(index): str(label).lower() for index, label in mapping.items()}
-        if not labels or all(label.startswith("label_") for label in labels.values()):
-            order = [part.strip().lower() for part in os.getenv(
-                "NLI_LABEL_ORDER", "contradiction,entailment,neutral"
-            ).split(",")]
-            labels = {index: label for index, label in enumerate(order)}
-        probs = {labels.get(index, f"label_{index}"): float(score) for index, score in enumerate(row)}
-        def find_score(fragment: str) -> float:
-            return max((score for label, score in probs.items() if fragment in label), default=0.0)
-        entailment = find_score("entail")
-        contradiction = find_score("contrad")
-        neutral = find_score("neutral")
-        entail_cutoff = float(os.getenv("NLI_ENTAILMENT_THRESHOLD", "0.72"))
-        contradiction_cutoff = float(os.getenv("NLI_CONTRADICTION_THRESHOLD", "0.72"))
-        if entailment >= entail_cutoff:
-            verdict, confidence = "Supported", entailment
-        elif contradiction >= contradiction_cutoff:
-            verdict, confidence = "Contradicted", contradiction
-        else:
-            verdict, confidence = "Not Found", max(neutral, 1.0 - entailment - contradiction, 0.0)
-        return {"verdict": verdict, "confidence": round(max(0.0, min(1.0, confidence)), 4), "scores": probs}
-    except Exception as error:
+        device = os.getenv("NLI_DEVICE", "cpu")
+        model = _load_model(model_name, device=device)
+
+        order_raw = os.getenv("NLI_LABEL_ORDER", "contradiction,entailment,neutral")
+        label_order = [part.strip().lower() for part in order_raw.split(",") if part.strip()] or DEFAULT_LABEL_ORDER
+
+        probs = _label_scores(model, passage_text, claim_text, label_order)
+
+        entail_cutoff = float(os.getenv("NLI_ENTAILMENT_THRESHOLD", str(DEFAULT_ENTAILMENT_THRESHOLD)))
+        contradiction_cutoff = float(os.getenv("NLI_CONTRADICTION_THRESHOLD", str(DEFAULT_CONTRADICTION_THRESHOLD)))
+
+        verdict, confidence = _verdict_from_scores(probs, entail_cutoff, contradiction_cutoff)
+        return {
+            "verdict": verdict,
+            "confidence": round(max(0.0, min(1.0, confidence)), 4),
+            "scores": probs,
+        }
+    except (ImportError, OSError, RuntimeError, ValueError) as error:
         _LOG.warning("NLI model unavailable; using deterministic judge (%s)", type(error).__name__)
         return None
 

@@ -143,3 +143,7 @@
     max-height: 320px;
   }
 }
+
+.rp-empty-risk {
+  padding: var(--space-4);
+}

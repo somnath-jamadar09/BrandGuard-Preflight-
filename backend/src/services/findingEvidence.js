@@ -20,10 +20,7 @@ async function findSource(filter) {
   return typeof query.lean === 'function' ? query.lean() : query;
 }
 
-/**
- * Resolve ML evidence to an organisation-owned Source. Stable ML fixture IDs
- * are never written into Finding.proofPassageId as if they were Mongo IDs.
- */
+
 async function resolveFindingEvidence({ claim, orgId, demoMode = process.env.DEMO_MODE === 'true' }) {
   if (!claim?.proofPassageId || !claim.evidence) {
     return { proofPassageId: null, evidence: null };

@@ -1,11 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { useOrg } from '../../context/OrgContext';
+import { useAuth } from '../../context/useAuth';
+import { useOrg } from '../../context/useOrg';
 import './Sidebar.css';
 
 const NAV_ITEMS = [
   { to: '/dashboard',      label: 'Dashboard',      roles: ['manager', 'admin', 'owner'] },
-  { to: '/knowledge-base', label: 'Knowledge Base', roles: ['admin', 'owner', 'manager'] },
+  { to: '/knowledge-base', label: 'Knowledge Base', roles: ['admin', 'owner', 'manager', 'creator'] },
   { to: '/drafts/new',     label: 'New Draft',      roles: ['creator', 'admin'] },
   { to: '/drafts',         label: 'My Drafts',      roles: ['creator'] },
   { to: '/drafts',         label: 'All Drafts',     roles: ['manager', 'admin'] },

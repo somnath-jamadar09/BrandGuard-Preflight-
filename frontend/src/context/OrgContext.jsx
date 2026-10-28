@@ -1,21 +1,16 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
-
-const OrgContext = createContext(null);
+import { useMemo } from 'react';
+import { useAuth } from './useAuth';
+import { OrgContext } from './orgContextInstance';
 
 export function OrgProvider({ children }) {
   const { user } = useAuth();
-  const [org, setOrg] = useState(null);
 
-  useEffect(() => {
-    if (user) {
-      setOrg({
-        id:   user.orgId,
-        name: user.orgName ?? 'My Organisation',
-      });
-    } else {
-      setOrg(null);
-    }
+  const org = useMemo(() => {
+    if (!user) return null;
+    return {
+      id: user.orgId,
+      name: user.orgName ?? 'My Organisation',
+    };
   }, [user]);
 
   return (
@@ -23,10 +18,4 @@ export function OrgProvider({ children }) {
       {children}
     </OrgContext.Provider>
   );
-}
-
-export function useOrg() {
-  const ctx = useContext(OrgContext);
-  if (!ctx) throw new Error('useOrg must be used within OrgProvider');
-  return ctx;
 }

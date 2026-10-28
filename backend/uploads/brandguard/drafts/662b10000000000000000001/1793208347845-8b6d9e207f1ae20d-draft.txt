@@ -1,0 +1,3 @@
+Teams should produce a functional product that helps an organisation prevent brand inconsistency before 
+content is published. The solution should not use approved source material, provide understandable findings, 
+support human review and demonstrate value across realistic content workflows. 

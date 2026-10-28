@@ -1,12 +1,3 @@
-/**
- * auth.js — Authentication API routes.
- *
- * Implements:
- *   POST /v1/auth/login — Authenticate user credentials and issue signed JWT
- *   GET  /v1/auth/me    — Retrieve authenticated user profile
- *
- * Conforms to OpenAPI 3.1 specification for Auth endpoints.
- */
 
 'use strict';
 
@@ -14,66 +5,38 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
+const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config');
+const { sendError } = require('../utils/response');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'brandguard-super-secret-jwt-key-2026';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
-/**
- * POST /v1/auth/login
- *
- * Request body: { email: string, password: string }
- *
- * Returns: { token: string, user: User }
- */
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = req.body || {};
 
     if (!email || typeof email !== 'string') {
-      return res.status(422).json({
-        success: false,
-        error: 'Validation error: Field "email" is required.',
-        code: 'VALIDATION_ERROR',
-      });
+      return sendError(res, 422, 'VALIDATION_ERROR', 'Validation error: Field "email" is required.');
     }
 
     if (!password || typeof password !== 'string' || password.length < 8) {
-      return res.status(422).json({
-        success: false,
-        error: 'Validation error: Field "password" must be at least 8 characters long.',
-        code: 'VALIDATION_ERROR',
-      });
+      return sendError(res, 422, 'VALIDATION_ERROR', 'Validation error: Field "password" must be at least 8 characters long.');
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail }).populate('orgId');
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid email or password.',
-        code: 'INVALID_CREDENTIALS',
-      });
+      return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
     }
 
     if (!user.active) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Account is deactivated.',
-        code: 'ACCOUNT_DEACTIVATED',
-      });
+      return sendError(res, 403, 'ACCOUNT_DEACTIVATED', 'Forbidden: Account is deactivated.');
     }
 
     if (user.orgId && user.orgId.active === false) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Organisation is inactive.',
-        code: 'ORG_INACTIVE',
-      });
+      return sendError(res, 403, 'ORG_INACTIVE', 'Forbidden: Organisation is inactive.');
     }
 
-    // Update lastLoginAt
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -102,13 +65,9 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
-/**
- * GET /v1/auth/me
- *
- * Returns current authenticated user profile.
- */
 router.get('/me', authenticate, async (req, res) => {
   return res.status(200).json(req.user);
 });
 
 module.exports = router;
+

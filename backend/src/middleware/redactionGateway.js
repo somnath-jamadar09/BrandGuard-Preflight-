@@ -1,15 +1,3 @@
-/**
- * redactionGateway.js — Confidential term tripwire and redaction middleware.
- *
- * Implements FR-AP-03, Architectural Blueprint, & AI Central Memory Architecture (Section 8):
- *   1. Loads the organisation's watchlist of confidential terms (e.g. embargoed
- *      product names, unannounced clients, secret internal project codenames).
- *   2. Replaces any matches with '[REDACTED]' in a copy of the content (preserving
- *      the author's original submission intact).
- *   3. Logs what was redacted for auditability and compliance.
- *   4. Attaches redaction metadata (`req.redactedContent`, `req.redactions`)
- *      for downstream consumers (e.g. ML Orchestrator, review pipeline).
- */
 
 const mongoose = require('mongoose');
 const Org = require('../models/Org');
@@ -120,13 +108,7 @@ async function loadOrgWatchlist(orgId, cachedOrg = null) {
   }
 }
 
-/**
- * redactionGateway — Express middleware.
- *
- * Automatically inspects incoming request content against the organisation's
- * watchlist, generates a redacted copy, logs all redactions, and attaches
- * results to `req.redactedContent` and `req.redactions`.
- */
+
 async function redactionGateway(req, res, next) {
   try {
     const orgId = req.org?._id || req.orgId || req.user?.orgId;

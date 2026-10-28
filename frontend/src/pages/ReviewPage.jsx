@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
 import DraftViewer from '../components/review/DraftViewer';
@@ -6,10 +6,8 @@ import FindingsSidebar from '../components/review/FindingsSidebar';
 import ComparisonView from '../components/review/ComparisonView';
 import ImageChecksPanel from '../components/review/ImageChecksPanel';
 import { getFindings, getDraft, patchFinding } from '../api/findings';
-import { MOCK_FINDINGS, MOCK_DRAFT } from '../utils/mockFindings';
+import { MOCK_FINDINGS, MOCK_DRAFT, USE_MOCK } from '../utils/mocks';
 import './ReviewPage.css';
-
-const USE_MOCK = import.meta.env.VITE_REVIEW_USE_MOCK === 'true';
 
 function adaptFinding(finding, content, index, total) {
   const start = finding.span?.start ?? 0;
@@ -41,43 +39,50 @@ export default function ReviewPage() {
     toastTimer.current = setTimeout(() => setToast(null), 3500);
   }
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setFetchError('');
-    try {
-      if (USE_MOCK) {
-        await new Promise((r) => setTimeout(r, 800));
-        setDraft(MOCK_DRAFT);
-        setFindings(MOCK_FINDINGS);
-      } else {
-        try {
-          const [draftRes, findingsRes] = await Promise.all([
-            getDraft(draftId),
-            getFindings(draftId),
-          ]);
-          const draftData = draftRes.data;
-          const content = draftData.content ?? draftData.latestVersion?.content ?? '';
-          const rawFindings = findingsRes.data?.data ?? findingsRes.data ?? [];
-          setDraft({ ...draftData, content });
-          setFindings(rawFindings.map((finding, index) => adaptFinding(
-            finding,
-            content,
-            index,
-            rawFindings.length,
-          )));
-        } catch {
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        if (USE_MOCK) {
+          await new Promise((r) => setTimeout(r, 800));
+          if (ignore) return;
           setDraft(MOCK_DRAFT);
           setFindings(MOCK_FINDINGS);
+          setFetchError('');
+        } else {
+          try {
+            const [draftRes, findingsRes] = await Promise.all([
+              getDraft(draftId),
+              getFindings(draftId),
+            ]);
+            if (ignore) return;
+            const draftData = draftRes.data;
+            const content = draftData.content ?? draftData.latestVersion?.content ?? '';
+            const rawFindings = findingsRes.data?.data ?? findingsRes.data ?? [];
+            setDraft({ ...draftData, content });
+            setFindings(rawFindings.map((finding, index) => adaptFinding(
+              finding,
+              content,
+              index,
+              rawFindings.length,
+            )));
+            setFetchError('');
+          } catch {
+            if (ignore) return;
+            setDraft(MOCK_DRAFT);
+            setFindings(MOCK_FINDINGS);
+          }
         }
+      } catch {
+        if (!ignore) setFetchError('Failed to load review data. Please refresh.');
+      } finally {
+        if (!ignore) setLoading(false);
       }
-    } catch {
-      setFetchError('Failed to load review data. Please refresh.');
-    } finally {
-      setLoading(false);
-    }
+    })();
+    return () => {
+      ignore = true;
+    };
   }, [draftId]);
-
-  useEffect(() => { load(); }, [load]);
 
   async function handleAction({ findingId, action, editedFix }) {
     try {
@@ -205,7 +210,7 @@ export default function ReviewPage() {
               </div>
             </div>
           ) : (
-            <div className="empty-state" style={{ padding: 'var(--space-4)' }}>
+            <div className="empty-state rp-empty-risk">
               <p>No risk data yet.</p>
             </div>
           )}

@@ -1,21 +1,9 @@
-/**
- * auditLogger.js — Append-only event creator service.
- *
- * Implements FR-AP-03 & Architectural Blueprint:
- * Records immutable audit events for all critical compliance actions:
- *   - Source lifecycle: uploads, indexings, expiry warnings, state changes
- *   - Draft lifecycle: submission, reviews, approvals, change requests
- *   - Findings: actions, accepts, dismissals, written override rationales
- *   - Passports: cryptographic stamp generation & verification
- *   - Security: confidential term blockings, rejected non-conforming ML outputs
- */
+
 
 const mongoose = require('mongoose');
 const AuditLog = require('../models/AuditLog');
 
-/**
- * Standardized audit event types across BrandGuard.
- */
+
 const AUDIT_EVENTS = {
   SOURCE_UPLOADED: 'source_uploaded',
   SOURCE_INDEXED: 'source_indexed',

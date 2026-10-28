@@ -8,6 +8,6 @@ export const getSource = (id) =>
 
 export const uploadSource = (formData, onUploadProgress) =>
   api.post('/v1/sources', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': undefined },
     onUploadProgress,
   });

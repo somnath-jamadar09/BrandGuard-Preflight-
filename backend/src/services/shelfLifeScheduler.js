@@ -1,16 +1,3 @@
-/**
- * shelfLifeScheduler.js — Daily shelf-life & expiry warning scheduler.
- *
- * Implements FR-KB-04 & Architectural Blueprint Section 3.2:
- * "System SHALL warn the source owner 30 days before any fact or source expires
- *  via an in-app notification and AuditLog event."
- *
- * Runs daily using node-cron to:
- *   1. Identify sources and facts within 30 days of shelf-life expiration.
- *   2. Generate immutable AuditLog events (`expiry_warning`).
- *   3. Mark sources that have reached or passed their expiration date as `expired`
- *      and record `source_expired` audit events.
- */
 
 const cron = require('node-cron');
 const mongoose = require('mongoose');

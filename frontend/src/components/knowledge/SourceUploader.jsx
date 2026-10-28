@@ -77,8 +77,9 @@ export default function SourceUploader({ onUploaded, onClose }) {
 
       onUploaded?.();
       onClose?.();
-    } catch {
-      setUploadError('Upload failed. Check the file and try again.');
+    } catch (err) {
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Upload failed. Check the file and try again.';
+      setUploadError(msg);
       setStage(null);
       setStageIndex(-1);
     }

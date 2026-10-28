@@ -92,7 +92,7 @@ export default function IntentForm({ values, onChange }) {
             aria-label="Add must-say point"
           />
         </div>
-        <span className="form-label" style={{ marginTop: 4, fontSize: 12 }}>
+        <span className="form-label intent-tag-hint">
           Press Enter or comma to add · Backspace to remove last
         </span>
       </div>

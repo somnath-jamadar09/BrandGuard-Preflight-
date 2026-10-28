@@ -1,79 +1,33 @@
-/**
- * findings.js — Finding action routes.
- *
- * Implements:
- *   PATCH /v1/findings/:id — Action a finding (accept / edit / dismiss / escalate)
- *
- * Status transition matrix (from → [allowed to]):
- *   open       → accepted | edited | dismissed | escalated
- *   escalated  → accepted | edited | dismissed
- *   accepted   → (terminal — no further transitions)
- *   edited     → (terminal — no further transitions)
- *   dismissed  → (terminal — no further transitions)
- *
- * Multi-tenancy: all queries are scoped by orgId (enforced via authenticate +
- *   orgIsolation middleware mounted globally on this router).
- *
- * Roles: reviewer, brand_manager, admin (creator/viewer cannot action findings).
- */
-
 'use strict';
 
-const express  = require('express');
+const express = require('express');
 const mongoose = require('mongoose');
 
-const Finding  = require('../models/Finding');
-const { authenticate }              = require('../middleware/auth');
-const { orgIsolation }              = require('../middleware/orgIsolation');
-const { requireRole, hasRole }      = require('../middleware/rbac');
-const { logEvent, AUDIT_EVENTS }    = require('../services/auditLogger');
+const Finding = require('../models/Finding');
+const { authenticate } = require('../middleware/auth');
+const { orgIsolation } = require('../middleware/orgIsolation');
+const { requireRole, hasRole, CAN_UPDATE_FINDING } = require('../middleware/rbac');
+const { logEvent, AUDIT_EVENTS } = require('../services/auditLogger');
 const { createDraftVersionOnAcceptedFix } = require('../services/versionManager');
+const { sendError, getOrgId, isValidObjectId } = require('../utils/response');
 
 const router = express.Router();
 
-// ── Router-level middleware ──────────────────────────────────────────────────
-// All finding action endpoints require authentication and tenant isolation.
 router.use(authenticate, orgIsolation);
 
-// ── Status transition matrix ──────────────────────────────────────────────────
-/**
- * Defines which statuses a finding may transition TO from each source status.
- * Terminal statuses (accepted, edited, dismissed) have no outbound transitions.
- */
 const ALLOWED_TRANSITIONS = {
-  open      : ['accepted', 'edited', 'dismissed', 'escalated'],
-  escalated : ['accepted', 'edited', 'dismissed'],
-  accepted  : [],
-  edited    : [],
-  dismissed : [],
+  open: ['accepted', 'edited', 'dismissed', 'escalated'],
+  escalated: ['accepted', 'edited', 'dismissed'],
+  accepted: [],
+  edited: [],
+  dismissed: [],
 };
 
-/**
- * Returns true if the transition from `from` => `to` is permitted.
- *
- * @param {string} from - Current finding status
- * @param {string} to   - Desired target status
- * @returns {boolean}
- */
 function isTransitionAllowed(from, to) {
   const allowed = ALLOWED_TRANSITIONS[from];
   return Array.isArray(allowed) && allowed.includes(to);
 }
 
-// ── Body validation helpers ──────────────────────────────────────────────────
-
-/**
- * Validates the PATCH request body for a finding action.
- *
- * Accepted shapes:
- *   { status: 'accepted' }
- *   { status: 'edited',    editedText: 'new text' }
- *   { status: 'dismissed', reason: 'rationale string' }
- *   { status: 'escalated', reason?: 'optional note' }
- *
- * @param {object} body
- * @returns {{ valid: boolean, error?: string, code?: string }}
- */
 function validateBody(body) {
   if (!body || typeof body !== 'object') {
     return { valid: false, error: 'Request body is required.', code: 'MISSING_BODY' };
@@ -81,12 +35,11 @@ function validateBody(body) {
 
   const { status, reason, editedText } = body;
 
-  // status is required
   if (!status || typeof status !== 'string') {
     return {
-      valid : false,
-      error : 'Field "status" is required and must be a string.',
-      code  : 'MISSING_STATUS',
+      valid: false,
+      error: 'Field "status" is required and must be a string.',
+      code: 'MISSING_STATUS',
     };
   }
 
@@ -94,30 +47,28 @@ function validateBody(body) {
 
   if (!Finding.FINDING_STATUSES.includes(normalised)) {
     return {
-      valid : false,
-      error : `Status "${status}" is not valid. Allowed values: ${Finding.FINDING_STATUSES.join(', ')}.`,
-      code  : 'INVALID_STATUS',
+      valid: false,
+      error: `Status "${status}" is not valid. Allowed values: ${Finding.FINDING_STATUSES.join(', ')}.`,
+      code: 'INVALID_STATUS',
     };
   }
 
-  // 'dismissed' requires a non-empty reason
   if (normalised === 'dismissed') {
     if (!reason || typeof reason !== 'string' || !reason.trim()) {
       return {
-        valid : false,
-        error : 'A "reason" is required when dismissing a finding.',
-        code  : 'REASON_REQUIRED',
+        valid: false,
+        error: 'A non-empty reason is required when dismissing a finding.',
+        code: 'REASON_REQUIRED',
       };
     }
   }
 
-  // 'edited' requires editedText
   if (normalised === 'edited') {
     if (!editedText || typeof editedText !== 'string' || !editedText.trim()) {
       return {
-        valid : false,
-        error : 'Field "editedText" is required when setting status to "edited".',
-        code  : 'EDITED_TEXT_REQUIRED',
+        valid: false,
+        error: 'editedText is required and must be non-empty when status is "edited".',
+        code: 'EDITED_TEXT_REQUIRED',
       };
     }
   }
@@ -125,214 +76,155 @@ function validateBody(body) {
   return { valid: true, normalisedStatus: normalised };
 }
 
-// ── PATCH /v1/findings/:id ────────────────────────────────────────────────────
+router.patch('/:id', requireRole(CAN_UPDATE_FINDING), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const orgId = getOrgId(req);
+    const actor = req.user?._id || null;
 
-/**
- * PATCH /v1/findings/:id
- *
- * Accepts a finding action payload and updates the finding's status.
- *
- * Supported actions by target status:
- *   accepted  — Reviewer accepts the finding as-is (no edit).
- *   edited    — Reviewer supplies a manual correction (editedText).
- *   dismissed — Reviewer dismisses the finding; must supply reason.
- *   escalated — Finding is escalated to senior reviewer / legal; reason optional.
- *
- * Guards:
- *   - Finding must belong to the authenticated user's org (tenant isolation).
- *   - Status transition must be valid per ALLOWED_TRANSITIONS matrix.
- *   - Terminal statuses (accepted, edited, dismissed) cannot be re-actioned.
- *
- * Side-effect:
- *   Writes an immutable AuditLog event with eventType 'finding_actioned'.
- *
- * Minimum required role: reviewer
- */
-router.patch(
-  '/:id',
-  requireRole('creator', 'reviewer', 'brand_manager', 'manager', 'admin', 'owner'),
-  async (req, res, next) => {
-    try {
-      const { id }  = req.params;
-      const orgId   = req.org?._id || req.orgId;
-      const actor   = req.user?._id || null;
+    if (!isValidObjectId(id)) {
+      return sendError(res, 400, 'INVALID_ID', `Invalid finding ID "${id}".`);
+    }
 
-      // ── 1. Validate finding ID ──────────────────────────────────────────────
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({
-          success : false,
-          error   : `Invalid finding ID "${id}".`,
-          code    : 'INVALID_ID',
-        });
-      }
+    const bodyValidation = validateBody(req.body);
+    if (!bodyValidation.valid) {
+      return sendError(res, 400, bodyValidation.code, bodyValidation.error);
+    }
 
-      // ── 2. Validate request body ────────────────────────────────────────────
-      const bodyValidation = validateBody(req.body);
-      if (!bodyValidation.valid) {
-        return res.status(400).json({
-          success : false,
-          error   : bodyValidation.error,
-          code    : bodyValidation.code,
-        });
-      }
+    const { normalisedStatus } = bodyValidation;
 
-      const { normalisedStatus }  = bodyValidation;
-
-      // Creators can accept / edit / dismiss. Only managers / reviewers can escalate.
-      if (normalisedStatus === 'escalated' && !hasRole(req.user?.role, ['reviewer', 'manager', 'brand_manager', 'admin', 'owner'])) {
-        return res.status(403).json({
-          success: false,
-          error: 'Forbidden: Insufficient privileges to escalate findings. Requires reviewer or manager role.',
-          code: 'ROLE_INSUFFICIENT',
+    if (normalisedStatus === 'escalated' && !hasRole(req.user?.role, ['reviewer', 'manager', 'brand_manager', 'admin', 'owner'])) {
+      return sendError(
+        res,
+        403,
+        'ROLE_INSUFFICIENT',
+        'Forbidden: Insufficient privileges to escalate findings. Requires reviewer or manager role.',
+        {
           requiredRoles: ['reviewer', 'manager'],
           userRole: req.user?.role,
-        });
-      }
-
-      const reason     = req.body.reason     ? String(req.body.reason).trim()     : null;
-      const editedText = req.body.editedText ? String(req.body.editedText).trim() : null;
-
-      // ── 3. Load finding (orgId-scoped) ──────────────────────────────────────
-      const finding = await Finding.findOne({ _id: id, orgId });
-      if (!finding) {
-        return res.status(404).json({
-          success : false,
-          error   : `Finding "${id}" was not found in your organisation.`,
-          code    : 'FINDING_NOT_FOUND',
-        });
-      }
-
-      // ── 4. Validate status transition ───────────────────────────────────────
-      const currentStatus = finding.status;
-
-      if (currentStatus === normalisedStatus) {
-        return res.status(409).json({
-          success : false,
-          error   : `Finding is already in status "${currentStatus}". No change was made.`,
-          code    : 'STATUS_UNCHANGED',
-          currentStatus,
-        });
-      }
-
-      if (!isTransitionAllowed(currentStatus, normalisedStatus)) {
-        const terminal = ALLOWED_TRANSITIONS[currentStatus]?.length === 0;
-        return res.status(422).json({
-          success       : false,
-          error         : terminal
-            ? `Finding is in terminal status "${currentStatus}" and cannot be changed.`
-            : `Transition from "${currentStatus}" to "${normalisedStatus}" is not permitted.`,
-          code          : terminal ? 'TERMINAL_STATUS' : 'INVALID_TRANSITION',
-          currentStatus,
-          targetStatus  : normalisedStatus,
-          allowedTargets: ALLOWED_TRANSITIONS[currentStatus] || [],
-        });
-      }
-
-      // ── 5. Capture previous state for audit metadata ────────────────────────
-      const previousStatus       = finding.status;
-      const previousSuggestedFix = finding.suggestedFix;
-
-      // ── 6. Apply the action ─────────────────────────────────────────────────
-      finding.status = normalisedStatus;
-
-      // For 'edited' actions, overwrite the suggestedFix with the reviewer's text
-      if (normalisedStatus === 'edited' && editedText) {
-        finding.suggestedFix = editedText;
-      }
-
-      await finding.save();
-
-      // ── 6b. Version management on accepted fix ──────────────────────────────
-      let createdVersion = null;
-      if (normalisedStatus === 'accepted' || (normalisedStatus === 'edited' && (editedText || finding.suggestedFix))) {
-        try {
-          const versionResult = await createDraftVersionOnAcceptedFix({
-            finding,
-            orgId,
-            actor: req.user,
-            suggestedFix: (normalisedStatus === 'edited' && editedText) ? editedText : finding.suggestedFix,
-          });
-          createdVersion = versionResult.draftVersion;
-        } catch (versionErr) {
-          console.warn('[findings] Failed to create DraftVersion on accepted fix:', versionErr.message);
         }
-      }
-
-      // ── 7. Write AuditLog event: 'finding_actioned' ─────────────────────────
-      const auditMetadata = {
-        previousStatus,
-        newStatus      : normalisedStatus,
-        draftId        : finding.draftId,
-        draftVersionId : createdVersion ? createdVersion._id : finding.draftVersionId,
-        verdict        : finding.verdict,
-        type           : finding.type,
-        ruleId         : finding.ruleId || null,
-      };
-
-      if (reason)     auditMetadata.reason     = reason;
-      if (editedText) auditMetadata.editedText = editedText;
-      if (normalisedStatus === 'edited' && previousSuggestedFix !== editedText) {
-        auditMetadata.previousSuggestedFix = previousSuggestedFix;
-      }
-      if (createdVersion) {
-        auditMetadata.newVersionNumber = createdVersion.versionNumber;
-      }
-
-      try {
-        await logEvent({
-          orgId,
-          actor,
-          eventType  : AUDIT_EVENTS.FINDING_ACTIONED,
-          entityType : 'finding',
-          entityId   : finding._id,
-          metadata   : auditMetadata,
-        });
-      } catch (auditErr) {
-        // Audit failure must not roll back the finding update.
-        // Log the failure and continue.
-        console.error('[findings] AuditLog write failed for finding_actioned:', auditErr.message);
-      }
-
-      // ── 8. Return updated finding ────────────────────────────────────────────
-      return res.json({
-        success        : true,
-        finding        : finding.toObject(),
-        previousStatus,
-        newStatus      : normalisedStatus,
-        version        : createdVersion ? (createdVersion.toObject ? createdVersion.toObject() : createdVersion) : undefined,
-      });
-    } catch (err) {
-      return next(err);
+      );
     }
+
+    const reason = req.body.reason ? String(req.body.reason).trim() : null;
+    const editedText = req.body.editedText ? String(req.body.editedText).trim() : null;
+
+    const finding = await Finding.findOne({ _id: id, orgId });
+    if (!finding) {
+      return sendError(res, 404, 'FINDING_NOT_FOUND', `Finding "${id}" was not found in your organisation.`);
+    }
+
+    const currentStatus = finding.status;
+
+    if (currentStatus === normalisedStatus) {
+      return sendError(
+        res,
+        409,
+        'STATUS_UNCHANGED',
+        `Finding is already in status "${currentStatus}". No change was made.`,
+        { currentStatus }
+      );
+    }
+
+    if (!isTransitionAllowed(currentStatus, normalisedStatus)) {
+      const terminal = ALLOWED_TRANSITIONS[currentStatus]?.length === 0;
+      return sendError(
+        res,
+        422,
+        terminal ? 'TERMINAL_STATUS' : 'INVALID_TRANSITION',
+        terminal
+          ? `Finding is in terminal status "${currentStatus}" and cannot be changed.`
+          : `Transition from "${currentStatus}" to "${normalisedStatus}" is not permitted.`,
+        {
+          currentStatus,
+          targetStatus: normalisedStatus,
+          allowedTargets: ALLOWED_TRANSITIONS[currentStatus] || [],
+        }
+      );
+    }
+
+    const previousStatus = finding.status;
+    const previousSuggestedFix = finding.suggestedFix;
+
+    finding.status = normalisedStatus;
+
+    if (normalisedStatus === 'edited' && editedText) {
+      finding.suggestedFix = editedText;
+    }
+
+    await finding.save();
+
+    let createdVersion = null;
+    if (normalisedStatus === 'accepted' || (normalisedStatus === 'edited' && (editedText || finding.suggestedFix))) {
+      try {
+        const versionResult = await createDraftVersionOnAcceptedFix({
+          finding,
+          orgId,
+          actor: req.user,
+          suggestedFix: (normalisedStatus === 'edited' && editedText) ? editedText : finding.suggestedFix,
+        });
+        createdVersion = versionResult.draftVersion;
+      } catch (versionErr) {
+        console.warn('[findings] Failed to create DraftVersion on accepted fix:', versionErr.message);
+      }
+    }
+
+    const auditMetadata = {
+      previousStatus,
+      newStatus: normalisedStatus,
+      draftId: finding.draftId,
+      draftVersionId: createdVersion ? createdVersion._id : finding.draftVersionId,
+      verdict: finding.verdict,
+      type: finding.type,
+      ruleId: finding.ruleId || null,
+    };
+
+    if (reason) auditMetadata.reason = reason;
+    if (editedText) auditMetadata.editedText = editedText;
+    if (normalisedStatus === 'edited' && previousSuggestedFix !== editedText) {
+      auditMetadata.previousSuggestedFix = previousSuggestedFix;
+    }
+    if (createdVersion) {
+      auditMetadata.newVersionNumber = createdVersion.versionNumber;
+    }
+
+    try {
+      await logEvent({
+        orgId,
+        actor,
+        eventType: AUDIT_EVENTS.FINDING_ACTIONED,
+        entityType: 'finding',
+        entityId: finding._id,
+        metadata: auditMetadata,
+      });
+    } catch (auditErr) {
+      console.error('[findings] AuditLog write failed for finding_actioned:', auditErr.message);
+    }
+
+    return res.json({
+      success: true,
+      finding: finding.toObject(),
+      previousStatus,
+      newStatus: normalisedStatus,
+      version: createdVersion ? (createdVersion.toObject ? createdVersion.toObject() : createdVersion) : undefined,
+    });
+  } catch (err) {
+    return next(err);
   }
-);
+});
 
-/**
- * GET /v1/findings/:id
-
- *
- * Retrieves a single finding by ID, scoped to the caller's organisation.
- */
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const orgId  = req.org?._id || req.orgId;
+    const orgId = getOrgId(req);
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success : false,
-        error   : `Invalid finding ID "${id}".`,
-        code    : 'INVALID_ID',
-      });
+    if (!isValidObjectId(id)) {
+      return sendError(res, 400, 'INVALID_ID', `Invalid finding ID "${id}".`);
     }
 
     const finding = await Finding.findOne({ _id: id, orgId }).lean();
     if (!finding) {
-      return res.status(404).json({
-        success : false,
-        error   : `Finding "${id}" was not found in your organisation.`,
-        code    : 'FINDING_NOT_FOUND',
-      });
+      return sendError(res, 404, 'FINDING_NOT_FOUND', `Finding "${id}" was not found in your organisation.`);
     }
 
     return res.json(finding);
@@ -342,4 +234,3 @@ router.get('/:id', async (req, res, next) => {
 });
 
 module.exports = router;
-

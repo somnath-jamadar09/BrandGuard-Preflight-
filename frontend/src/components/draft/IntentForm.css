@@ -68,3 +68,8 @@
 .intent-tag-input::placeholder {
   color: var(--color-text-muted);
 }
+
+.intent-tag-hint {
+  margin-top: 4px;
+  font-size: 12px;
+}

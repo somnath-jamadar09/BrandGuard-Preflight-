@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppLayout from '../components/layout/AppLayout';
 import CommentThread from '../components/workflow/CommentThread';
@@ -7,49 +7,9 @@ import ApprovalControls from '../components/workflow/ApprovalControls';
 import VersionTimeline from '../components/workflow/VersionTimeline';
 import DiffView from '../components/workflow/DiffView';
 import { getComments, postComment, approveDraft, requestChanges, overrideFinding } from '../api/workflow';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
+import { MOCK_COMMENTS, MOCK_VERSIONS, USE_MOCK } from '../utils/mocks';
 import './WorkflowPage.css';
-
-const MOCK_COMMENTS = [
-  {
-    _id: 'c1',
-    authorName: 'Priya Mehta',
-    authorRole: 'manager',
-    text: 'The superlative claim needs to be removed before I can approve.',
-    type: 'changes-requested',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    _id: 'c2',
-    authorName: 'Rohan Das',
-    authorRole: 'creator',
-    text: 'Updated the copy — removed "best returns policy" and corrected the 14-day window.',
-    type: 'comment',
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    _id: 'c3',
-    authorName: 'Priya Mehta',
-    authorRole: 'manager',
-    text: 'Priya Mehta approved this draft.',
-    type: 'approved',
-    createdAt: new Date(Date.now() - 900000).toISOString(),
-  },
-];
-
-const MOCK_VERSIONS = [
-  { _id: 'v1', version: 1, status: 'draft', authorName: 'Rohan Das', createdAt: new Date(Date.now() - 7200000).toISOString(), diff: null },
-  { _id: 'v2', version: 2, status: 'in-review', authorName: 'Rohan Das', createdAt: new Date(Date.now() - 3600000).toISOString(), diff: [
-    { type: 'removed', text: 'We offer the best returns policy in India, giving customers peace of mind.' },
-    { type: 'added',   text: 'We offer a 30-day returns policy, giving customers peace of mind.' },
-    { type: 'removed', text: 'Our 14-day return window is designed to be fair and hassle-free.' },
-    { type: 'added',   text: 'Our 30-day return window is designed to be fair and hassle-free.' },
-    { type: 'unchanged', text: 'Returns are processed free of charge with no hidden fees.' },
-  ]},
-  { _id: 'v3', version: 3, status: 'approved', authorName: 'Priya Mehta', createdAt: new Date(Date.now() - 900000).toISOString(), diff: null },
-];
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FINDINGS === 'true';
 
 export default function WorkflowPage() {
   const { draftId } = useParams();
@@ -66,24 +26,28 @@ export default function WorkflowPage() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  const loadComments = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (USE_MOCK) {
-        await new Promise((r) => setTimeout(r, 400));
-        setComments(MOCK_COMMENTS);
-      } else {
-        const { data } = await getComments(draftId);
-        setComments(Array.isArray(data) ? data : (data?.data || []));
-      }
-    } catch {
-      showToast('Failed to load comments.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [draftId]);
 
-  useEffect(() => { loadComments(); }, [loadComments]);
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        if (USE_MOCK) {
+          await new Promise((r) => setTimeout(r, 400));
+          if (!ignore) setComments(MOCK_COMMENTS);
+        } else {
+          const { data } = await getComments(draftId);
+          if (!ignore) setComments(Array.isArray(data) ? data : (data?.data || []));
+        }
+      } catch {
+        if (!ignore) showToast('Failed to load comments.', 'error');
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [draftId]);
 
   async function handleComment(text) {
     try {

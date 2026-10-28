@@ -11,6 +11,7 @@ function expiryBadgeClass(expiryDate) {
   if (!expiryDate) return '';
   const now = Date.now();
   const expiry = new Date(expiryDate).getTime();
+  if (isNaN(expiry)) return '';
   if (expiry < now) return 'badge-status-blocked';
   if (expiry - now < 30 * 24 * 60 * 60 * 1000) return 'badge-status-inreview';
   return 'badge-status-approved';
@@ -19,14 +20,18 @@ function expiryBadgeClass(expiryDate) {
 function expiryLabel(expiryDate) {
   if (!expiryDate) return null;
   const now = Date.now();
-  const expiry = new Date(expiryDate).getTime();
+  const dateObj = new Date(expiryDate);
+  const expiry = dateObj.getTime();
+  if (isNaN(expiry)) return null;
   if (expiry < now) return 'Expired';
   if (expiry - now < 30 * 24 * 60 * 60 * 1000) return 'Expiring soon';
-  return new Date(expiryDate).toLocaleDateString();
+  return dateObj.toLocaleDateString();
 }
 
 export default function SourceCard({ source, selected, onClick }) {
-  const typeBadge = TYPE_LABELS[source.type] || source.type;
+  if (!source) return null;
+  const typeBadge = TYPE_LABELS[source.type] || source.type || 'Document';
+  const displayName = source.title || source.fileName || 'Untitled source';
 
   return (
     <button
@@ -36,7 +41,7 @@ export default function SourceCard({ source, selected, onClick }) {
       aria-pressed={selected}
     >
       <div className="source-card-header">
-        <span className="source-card-name">{source.fileName}</span>
+        <span className="source-card-name">{displayName}</span>
         <span className="badge badge-status-checked">{typeBadge}</span>
       </div>
 

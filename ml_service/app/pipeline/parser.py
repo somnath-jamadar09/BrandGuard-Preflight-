@@ -45,7 +45,7 @@ def _ocr_page(page: Any, page_number: int) -> str:
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
         text = pytesseract.image_to_string(image, timeout=15)
         return text.strip()
-    except Exception as error:
+    except (ImportError, OSError, RuntimeError, ValueError) as error:
         raise DocumentParseError(
             "OCR_FAILED", f"OCR failed on PDF page {page_number}: {type(error).__name__}"
         ) from error
@@ -54,7 +54,7 @@ def _ocr_page(page: Any, page_number: int) -> str:
 def _parse_pdf(data: bytes, file_name: str) -> dict[str, Any]:
     try:
         document = pymupdf.open(stream=data, filetype="pdf")
-    except Exception as error:
+    except (pymupdf.FileDataError, pymupdf.EmptyFileError, OSError, RuntimeError, ValueError) as error:
         raise DocumentParseError("INVALID_DOCUMENT", f"could not open PDF: {error}") from error
     try:
         pages = []
@@ -72,7 +72,7 @@ def _parse_pdf(data: bytes, file_name: str) -> dict[str, Any]:
 def _parse_docx(data: bytes, file_name: str) -> dict[str, Any]:
     try:
         document = Document(BytesIO(data))
-    except Exception as error:
+    except (OSError, RuntimeError, ValueError, KeyError) as error:
         raise DocumentParseError("INVALID_DOCUMENT", f"could not open DOCX: {error}") from error
     parts = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
     for table in document.tables:
