@@ -1,9 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('bg-theme');
+          if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
     <title>BrandGuard Preflight — Brand compliance, with proof.</title>
     <meta name="description" content="BrandGuard Preflight checks your marketing drafts against your brand guidelines, surfacing evidence-bound findings before anything goes live." />
   </head>
