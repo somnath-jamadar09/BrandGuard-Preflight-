@@ -9,7 +9,7 @@ import { getRuleInsights, getMistakeInsights, getTimeToApproval } from '../api/i
 import { SAMPLE_DRAFTS, SAMPLE_MISTAKES, SAMPLE_RULES, USE_MOCK } from '../utils/mocks';
 import './DashboardPage.css';
 
-export default function DashboardPage() {
+export default function DashboardPage({ myDraftsOnly = false, auditMode = false, debugMode = false }) {
   const [drafts, setDrafts] = useState([]);
   const [mistakes, setMistakes] = useState([]);
   const [rules, setRules] = useState([]);
@@ -99,8 +99,16 @@ export default function DashboardPage() {
     citationRate: '94.6%',
   };
 
+  const pageTitle = auditMode
+    ? 'Audit Trail & History'
+    : debugMode
+    ? 'Guideline Debugger'
+    : myDraftsOnly
+    ? 'My Drafts'
+    : 'Executive Dashboard';
+
   return (
-    <AppLayout pageTitle="Governance Dashboard">
+    <AppLayout pageTitle={pageTitle}>
       <div className="dp-container">
         {toast && (
           <div

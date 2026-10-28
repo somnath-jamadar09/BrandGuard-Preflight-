@@ -19,3 +19,6 @@ export function OrgProvider({ children }) {
     </OrgContext.Provider>
   );
 }
+
+export { useOrg } from './useOrg';
+

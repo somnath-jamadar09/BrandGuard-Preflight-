@@ -34,3 +34,6 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
+export { useAuth } from './useAuth';
+
