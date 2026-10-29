@@ -5,6 +5,7 @@
 
 ---
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-success?logo=vercel&logoColor=white)](https://brand-guard-preflight-ruddy.vercel.app/login)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4.19-000000?logo=express&logoColor=white)](https://expressjs.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -15,6 +16,14 @@
 [![MinIO](https://img.shields.io/badge/MinIO-S3--Compatible-C72C48?logo=minio&logoColor=white)](https://min.io/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com/)
 [![WCAG 2.2](https://img.shields.io/badge/Accessibility-WCAG%202.2%20AA-blueviolet)](https://www.w3.org/WAI/standards-guidelines/wcag/)
+
+---
+
+## 🌐 Live Deployment
+
+* **Live Web Application**: [https://brand-guard-preflight-ruddy.vercel.app/login](https://brand-guard-preflight-ruddy.vercel.app/login)
+
+> 💡 **Try it live**: Experience multi-role self-service registration (Content Creator, Brand Manager, Knowledge Owner) with clean workspace provisioning, or use the one-click demo quick logins to explore seeded brand governance scenarios. The login screen features a live backend health dot and a URL configuration switcher to connect to your preferred API instance.
 
 ---
 
@@ -74,22 +83,27 @@ BrandGuard Preflight follows a strict three-layer architecture. **The browser ne
 
 * **🔍 Automated Claim Extraction & NLI Checking**: Automatically isolates factual claims, comparison superlatives, and product metrics; evaluates them against source passages for *Contradiction*, *Outdatedness*, or *Support*.
 * **🔒 Intent-Lock Remediation**: Authors declare target audience, purpose, and *Must-Say* statements. AI rewrites resolve factual errors while guaranteeing no essential messaging is dropped.
+* **👥 Multi-Role Registration & Fresh Workspaces**: Self-service onboarding with interactive role selection (**Content Creator**, **Brand Manager**, **Knowledge Owner**). New registrants automatically receive their own dedicated, clean workspace with 0 drafts and a fresh interface, plus optional demo org opt-in.
+* **🧭 Smart Role-Based Navigation**: Content Creators land directly on draft submission (`/drafts/new`), Brand Managers on the Executive Dashboard (`/dashboard`), and Knowledge Owners on the Guidelines & Sources registry (`/knowledge-base`).
+* **🔌 Dynamic Backend URL Switcher**: Direct frontend configuration panel to switch between local development (`localhost:4000`) and cloud backends (Render / Vercel) with live API status detection.
 * **⏳ Claim Shelf-Life & Source Expiration**: Automated background cron monitors fact expiration dates and alerts knowledge base owners 30 days before guidelines expire.
 * **🛡️ Redaction Gateway & Confidentiality Tripwires**: Masks sensitive and embargoed terms with `[REDACTED]` prior to external LLM calls, blocking unreleased product leaks.
 * **📜 Cryptographic Brand Passport**: Computes a SHA-256 tamper-evident digital certificate recording checks executed, rule versions, human approvers, and AI disclosure statements.
-* **👥 Role-Based Portals (RBAC)**: Tailored operational views for Creators, Brand Managers, Knowledge Owners, Compliance Auditors, and Admins.
 * **📊 Insights & Brand Pre-Mortem**: Aggregates top recurring policy violations, detects guideline conflicts, and predicts public relations risks before release.
 
 ---
 
 ## 👥 Role Permissions Matrix (RBAC)
 
-| Feature / Workspace | Creator | Manager | Knowledge Owner | Auditor / Viewer | Admin |
+| Feature / Workspace | Content Creator | Brand Manager | Knowledge Owner | Auditor / Viewer | Admin |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Draft Submission (`/drafts/new`)** | ✅ Create | ❌ | ❌ | ❌ | ✅ Full |
+| **My Drafts (`/drafts/mine`)** | ✅ Author view | ❌ | ❌ | ❌ | ✅ Full |
+| **Executive Dashboard (`/dashboard`)** | ❌ | ✅ Full Metrics | 👁️ Read-only | 👁️ Read-only | ✅ Full |
 | **Preflight Review (`/drafts/:id/review`)** | ✅ Fix / Edit | 👁️ Inspect | 👁️ Read-only | 👁️ Read-only | ✅ Full |
-| **Workflow Sign-off (`/drafts/:id/workflow`)** | 💬 Comment | ✅ Sign-off | 💬 Comment | 👁️ View-only | ✅ Full |
+| **Workflow Sign-off (`/drafts/:id/workflow`)** | 💬 Comment | ✅ Approve / Override | 💬 Comment | 👁️ View-only | ✅ Full |
 | **Knowledge Base (`/knowledge-base`)** | 👁️ Read-only | 👁️ Read-only | ✅ Ingest & Manage | 👁️ Read-only | ✅ Full |
+| **Verified Facts (`/facts`)** | ❌ | 👁️ Read-only | ✅ Curate Facts | 👁️ Read-only | ✅ Full |
 | **Brand Passport (`/passports/:id`)** | 👁️ View | ✅ Issue & Verify | 👁️ View | 🔍 Verify | ✅ Full |
 | **Audit Logs & Redaction Engine** | ❌ | 📊 Summary | ❌ | 📤 Export | ✅ Full |
 
@@ -107,17 +121,17 @@ BrandGuard-Preflight-/
 │   │   ├── services/          # ML orchestrator, passportBuilder, shelfLifeScheduler
 │   │   ├── utils/             # Database, MinIO, hash, and crypto helpers
 │   │   └── server.js          # Express app bootstrap & route registration
-│   ├── tests/                 # Node test suite (RBAC, redaction, audit log, passports)
+│   ├── tests/                 # Node test suite (RBAC, redaction, audit log, passports, roles)
 │   └── package.json
 │
 ├── frontend/                  # React 19 + Vite web application
 │   ├── src/
-│   │   ├── api/               # Axios HTTP client with JWT interceptor
+│   │   ├── api/               # Axios HTTP client with JWT interceptor & URL switcher
 │   │   ├── components/        # UI components (EvidenceCard, DiffViewer, Sidebar, TopBar)
 │   │   ├── context/           # AuthContext and OrgContext state providers
-│   │   ├── pages/             # Route pages (Dashboard, DraftSubmit, Review, Workflow, KB)
+│   │   ├── pages/             # Route pages (Dashboard, DraftSubmit, Review, Workflow, KB, Register)
 │   │   ├── index.css          # Design system tokens & dark mode theme
-│   │   └── App.jsx            # Router and layout integration
+│   │   └── App.jsx            # Router and layout integration with role-based routing
 │   └── package.json
 │
 ├── ml_service/                # Python FastAPI machine learning service
@@ -145,13 +159,23 @@ BrandGuard-Preflight-/
 
 ## ⚡ Quickstart
 
-### Option 1: Docker Compose (Recommended)
+### Option 1: Live Cloud Deployment (Instant)
+
+Open the hosted frontend in your browser:  
+👉 **[https://brand-guard-preflight-ruddy.vercel.app/login](https://brand-guard-preflight-ruddy.vercel.app/login)**
+
+* To test fresh workspace creation: Click **"Create one for free"**, choose your role (**Creator**, **Brand Manager**, or **Knowledge Owner**), and submit.
+* To test pre-populated demo data: Use the **Demo quick logins** buttons on the login card.
+
+---
+
+### Option 2: Docker Compose (Local Full Stack)
 
 Run the complete multi-service stack with a single command:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Omiiii04/BrandGuard-Preflight-.git
+git clone https://github.com/somnath-jamadar09/BrandGuard-Preflight-.git
 cd BrandGuard-Preflight-
 
 # 2. Configure environment
@@ -183,28 +207,29 @@ Run this single command from the repository root:
 .\scripts\verify-local.ps1
 ```
 
-It creates or repairs local secrets without printing them, installs the backend test dependencies if needed, builds and starts the stack, runs the source-upload/draft-review integration test, restarts the ML service, and verifies that indexed evidence is still available afterward. It leaves the services running and does not delete Docker volumes. If verification fails, it saves Compose logs under your Windows temporary directory.
+It creates or repairs local secrets without printing them, installs the backend test dependencies if needed, builds and starts the stack, runs the source-upload/draft-review integration test, restarts the ML service, and verifies that indexed evidence is still available afterward.
 
 #### Running Service Endpoints
 
-| Service | Port | Endpoint URL | Description |
-| :--- | :---: | :--- | :--- |
-| **Frontend Web** | `3000` | [http://localhost:3000](http://localhost:3000) | React Web Application |
-| **Backend API** | `4000` | [http://localhost:4000](http://localhost:4000) | Express REST API (`/health`, `/v1/*`) |
-| **ML Engine** | `8000` | [http://localhost:8000](http://localhost:8000) | FastAPI ML Service (`/docs`) |
-| **MinIO Console** | `9001` | [http://localhost:9001](http://localhost:9001) | S3-compatible object storage console |
-| **MongoDB** | `27017` | `mongodb://localhost:27017` | Document Database |
+| Service | Environment | Port | Endpoint URL | Description |
+| :--- | :---: | :---: | :--- | :--- |
+| **Frontend Web** | Vercel (Prod) | `443` | [https://brand-guard-preflight-ruddy.vercel.app/login](https://brand-guard-preflight-ruddy.vercel.app/login) | Production Web Client |
+| **Frontend Web** | Local | `3000` / `5173` | [http://localhost:3000](http://localhost:3000) | Local React Web Client |
+| **Backend API** | Local | `4000` | [http://localhost:4000](http://localhost:4000) | Express REST API (`/health`, `/v1/*`) |
+| **ML Engine** | Local | `8000` | [http://localhost:8000](http://localhost:8000) | FastAPI ML Service (`/docs`) |
+| **MinIO Console** | Local | `9001` | [http://localhost:9001](http://localhost:9001) | S3-compatible object storage console |
+| **MongoDB** | Local / Atlas | `27017` | `mongodb://localhost:27017` | Document Database |
 
 The ML Engine binds to loopback (`127.0.0.1:8000`) for local diagnostics and is not published to the LAN. All non-health ML POST endpoints require the backend-to-ML `X-ML-Internal-Token` header; do not expose this service publicly.
 
 ---
 
-### Option 2: Local Development Setup
+### Option 3: Local Development Setup
 
 #### Prerequisites
 * Node.js v18+ & npm
 * Python 3.11+
-* Running MongoDB instance (`localhost:27017`)
+* Running MongoDB instance (`localhost:27017` or Atlas URI)
 * Running MinIO instance (`localhost:9000`)
 
 #### 1. Backend Service
@@ -235,7 +260,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 cd frontend
 npm install
 npm run dev
-# Frontend accessible at http://localhost:5173 (or configured Vite port)
+# Frontend accessible at http://localhost:5173
 ```
 
 ---
@@ -249,8 +274,8 @@ Executes the full Stellara Brands returns-policy audit scenario (verifying claim
 node integration_test.js
 ```
 
-### 2. Backend Unit & Security Tests
-Covers RBAC enforcement, redaction gateway masking, SHA-256 passport cryptography, and tenant isolation:
+### 2. Backend Unit, Security & Role Tests
+Covers RBAC enforcement, role assignment (`creator`, `brand_manager`, `knowledge_owner`), redaction gateway masking, SHA-256 passport cryptography, and tenant isolation:
 
 ```bash
 cd backend
@@ -273,6 +298,9 @@ The entire API contract is documented in [openapi.yaml](file:///c:/Users/jamad/D
 | Method | Endpoint | Description | Access |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/health` | Service health status | Public |
+| `POST` | `/v1/auth/register` | Self-service registration with role selection | Public |
+| `POST` | `/v1/auth/login` | Password login with JWT issuance | Public |
+| `GET` | `/v1/auth/me` | Fetch authenticated user profile & role | Authenticated |
 | `POST` | `/v1/drafts` | Submit new content draft with intent parameters | Creator / Admin |
 | `GET` | `/v1/drafts/:id` | Fetch draft details, version history, & status | Authenticated |
 | `POST` | `/v1/drafts/:id/review` | Trigger Preflight ML scan & claim verification | Creator / Admin |
@@ -300,8 +328,9 @@ The entire API contract is documented in [openapi.yaml](file:///c:/Users/jamad/D
 
 This project is licensed under the [MIT License](file:///c:/Users/jamad/Desktop/BrandGuard-Preflight-/LICENSE).
 
- 
-## Advanced ML capabilities
+---
+
+## 🧠 Advanced ML Capabilities
 
 The FastAPI service includes scanned-PDF OCR, OpenCV image-byte analysis, guarded OpenAI-compatible rewrite/premortem prompts, spaCy entity detection, a DeBERTa-compatible NLI judge, and a FAISS/SentenceTransformers retrieval path. Deterministic fallbacks remain available when a model is unconfigured or unavailable.
 
