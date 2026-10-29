@@ -26,11 +26,8 @@ export default function KnowledgeBasePage({ defaultTab = 'sources' }) {
     setFetchError('');
     try {
       const res = await getSources();
-      let list = unwrapArray(res);
-      if ((!list || list.length === 0) && USE_MOCK) {
-        list = SAMPLE_SOURCES;
-      }
-      setSources(list || []);
+      const list = unwrapArray(res) || [];
+      setSources(list);
       // If currently selected source is no longer present, keep or clear
       if (selected) {
         const stillPresent = list?.find((s) => s._id === selected._id);
@@ -61,11 +58,8 @@ export default function KnowledgeBasePage({ defaultTab = 'sources' }) {
       try {
         const res = await getSources();
         if (ignore) return;
-        let list = unwrapArray(res);
-        if ((!list || list.length === 0) && USE_MOCK) {
-          list = SAMPLE_SOURCES;
-        }
-        setSources(list || []);
+        const list = unwrapArray(res) || [];
+        setSources(list);
       } catch (err) {
         if (ignore) return;
         if (USE_MOCK) {

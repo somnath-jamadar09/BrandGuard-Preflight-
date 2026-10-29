@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto  = require('crypto');
 const express = require('express');
 const jwt     = require('jsonwebtoken');
 const User    = require('../models/User');
@@ -106,7 +107,7 @@ router.post('/login', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password, orgName } = req.body || {};
+    const { name, email, password, orgName, role, joinDemoOrg } = req.body || {};
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim().length < 2) {
@@ -127,7 +128,28 @@ router.post('/register', async (req, res, next) => {
       return sendError(res, 409, 'EMAIL_TAKEN', 'An account with this email already exists.');
     }
 
-    // Find or create org
+    // Determine user role (creator, brand_manager, knowledge_owner)
+    const ALLOWED_REGISTRATION_ROLES = {
+      creator: 'creator',
+      content_creator: 'creator',
+      brand_manager: 'brand_manager',
+      manager: 'brand_manager',
+      knowledge_owner: 'knowledge_owner',
+      owner: 'knowledge_owner',
+    };
+
+    let userRole = 'creator';
+    if (role && typeof role === 'string') {
+      const normalizedReqRole = role.trim().toLowerCase().replace(/[\s-]+/g, '_');
+      if (ALLOWED_REGISTRATION_ROLES[normalizedReqRole]) {
+        userRole = ALLOWED_REGISTRATION_ROLES[normalizedReqRole];
+      }
+    }
+
+    // Find or create org:
+    // If an orgName is provided, use/create it.
+    // If user explicitly asks to join demo org, join Stellara Brands.
+    // Otherwise, create a clean dedicated workspace org so new users get a completely fresh interface.
     let org;
     if (orgName && typeof orgName === 'string' && orgName.trim().length > 0) {
       const slug = orgName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -136,21 +158,30 @@ router.post('/register', async (req, res, next) => {
         org = new Org({ name: orgName.trim(), slug, active: true });
         await org.save();
       }
-    } else {
-      // Fall back to demo Stellara Brands org
+    } else if (joinDemoOrg === true) {
+      // Opted into sample demo workspace
       org = await Org.findOne({ slug: 'stellara-brands' });
       if (!org) {
         org = new Org({ name: 'Stellara Brands', slug: 'stellara-brands', active: true });
         await org.save();
       }
+    } else {
+      // Fresh, clean workspace for new user
+      const trimmedName = name.trim();
+      const orgTitle = `${trimmedName}'s Workspace`;
+      const baseSlug = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workspace';
+      const randomSuffix = crypto.randomBytes(3).toString('hex');
+      const slug = `${baseSlug}-${randomSuffix}`;
+      org = new Org({ name: orgTitle, slug, active: true });
+      await org.save();
     }
 
-    // Create user
+    // Create user with chosen role
     const user = new User({
       name:  name.trim(),
       email: normalizedEmail,
       orgId: org._id,
-      role:  'creator',   // default role for self-registered users
+      role:  userRole,
       active: true,
     });
     await user.setPassword(password);

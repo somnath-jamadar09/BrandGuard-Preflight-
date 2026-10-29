@@ -40,10 +40,20 @@ export default function LoginPage() {
   const isCloudHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
   const showLocalWarning = isCloudHost && isLocalHost;
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname;
 
   useEffect(() => {
-    if (user) navigate(from, { replace: true });
+    if (user) {
+      if (from) {
+        navigate(from, { replace: true });
+      } else if (user.role === 'creator') {
+        navigate('/drafts/new', { replace: true });
+      } else if (user.role === 'knowledge_owner' || user.role === 'owner') {
+        navigate('/knowledge-base', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
   }, [user, navigate, from]);
 
   useEffect(() => { emailRef.current?.focus(); }, []);

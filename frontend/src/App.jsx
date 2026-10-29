@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { OrgProvider } from './context/OrgContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { useAuth } from './context/useAuth';
 import RequireAuth from './components/layout/RequireAuth';
 
 import LoginPage         from './pages/LoginPage';
@@ -14,6 +15,15 @@ import WorkflowPage      from './pages/WorkflowPage';
 import PassportPage      from './pages/PassportPage';
 import ForbiddenPage     from './pages/ForbiddenPage';
 import './App.css';
+
+function RoleLandingRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'creator') return <Navigate to="/drafts/new" replace />;
+  if (user.role === 'knowledge_owner' || user.role === 'owner') return <Navigate to="/knowledge-base" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
 
 export default function App() {
   return (
@@ -33,7 +43,7 @@ export default function App() {
               <Route
                 path="/dashboard"
                 element={
-                  <RequireAuth allowedRoles={['creator', 'manager', 'owner', 'admin', 'viewer']}>
+                  <RequireAuth allowedRoles={['creator', 'manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin', 'viewer']}>
                     <DashboardPage />
                   </RequireAuth>
                 }
@@ -42,7 +52,7 @@ export default function App() {
               <Route
                 path="/knowledge-base"
                 element={
-                  <RequireAuth allowedRoles={['admin', 'owner', 'manager', 'creator', 'viewer']}>
+                  <RequireAuth allowedRoles={['admin', 'owner', 'knowledge_owner', 'manager', 'brand_manager', 'creator', 'viewer']}>
                     <KnowledgeBasePage />
                   </RequireAuth>
                 }
@@ -51,7 +61,7 @@ export default function App() {
               <Route
                 path="/facts"
                 element={
-                  <RequireAuth allowedRoles={['manager', 'owner', 'admin']}>
+                  <RequireAuth allowedRoles={['manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin']}>
                     <KnowledgeBasePage defaultTab="facts" />
                   </RequireAuth>
                 }
@@ -60,7 +70,7 @@ export default function App() {
               <Route
                 path="/terms"
                 element={
-                  <RequireAuth allowedRoles={['manager', 'owner', 'admin']}>
+                  <RequireAuth allowedRoles={['manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin']}>
                     <KnowledgeBasePage defaultTab="terms" />
                   </RequireAuth>
                 }
@@ -87,7 +97,7 @@ export default function App() {
               <Route
                 path="/drafts"
                 element={
-                  <RequireAuth allowedRoles={['creator', 'manager', 'admin', 'owner', 'viewer']}>
+                  <RequireAuth allowedRoles={['creator', 'manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner', 'viewer']}>
                     <DashboardPage />
                   </RequireAuth>
                 }
@@ -96,7 +106,7 @@ export default function App() {
               <Route
                 path="/drafts/:draftId/review"
                 element={
-                  <RequireAuth allowedRoles={['creator', 'manager', 'admin', 'owner']}>
+                  <RequireAuth allowedRoles={['creator', 'manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner']}>
                     <ReviewPage />
                   </RequireAuth>
                 }
@@ -105,7 +115,7 @@ export default function App() {
               <Route
                 path="/drafts/:draftId/workflow"
                 element={
-                  <RequireAuth allowedRoles={['creator', 'manager', 'admin', 'owner']}>
+                  <RequireAuth allowedRoles={['creator', 'manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner']}>
                     <WorkflowPage />
                   </RequireAuth>
                 }
@@ -114,7 +124,7 @@ export default function App() {
               <Route
                 path="/passports"
                 element={
-                  <RequireAuth allowedRoles={['creator', 'manager', 'admin', 'owner', 'viewer']}>
+                  <RequireAuth allowedRoles={['creator', 'manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner', 'viewer']}>
                     <PassportPage />
                   </RequireAuth>
                 }
@@ -123,7 +133,7 @@ export default function App() {
               <Route
                 path="/passports/:passportId"
                 element={
-                  <RequireAuth allowedRoles={['creator', 'manager', 'admin', 'owner', 'viewer']}>
+                  <RequireAuth allowedRoles={['creator', 'manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner', 'viewer']}>
                     <PassportPage />
                   </RequireAuth>
                 }
@@ -132,7 +142,7 @@ export default function App() {
               <Route
                 path="/audit"
                 element={
-                  <RequireAuth allowedRoles={['manager', 'admin', 'viewer']}>
+                  <RequireAuth allowedRoles={['manager', 'brand_manager', 'admin', 'viewer', 'knowledge_owner', 'owner']}>
                     <DashboardPage auditMode />
                   </RequireAuth>
                 }
@@ -141,14 +151,14 @@ export default function App() {
               <Route
                 path="/debug"
                 element={
-                  <RequireAuth allowedRoles={['manager', 'admin']}>
+                  <RequireAuth allowedRoles={['manager', 'brand_manager', 'admin']}>
                     <DashboardPage debugMode />
                   </RequireAuth>
                 }
               />
 
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<RoleLandingRedirect />} />
+              <Route path="*" element={<RoleLandingRedirect />} />
             </Routes>
           </OrgProvider>
         </AuthProvider>

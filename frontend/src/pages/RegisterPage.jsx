@@ -5,6 +5,30 @@ import { useTheme } from '../context/ThemeContext';
 import './LoginPage.css';   // reuse the same card / form styles
 import './RegisterPage.css';
 
+const ROLES = [
+  {
+    id: 'creator',
+    label: 'Content Creator',
+    badge: 'Creator',
+    desc: 'Submit drafts for brand-compliance review, fix rule violations, and track draft versions.',
+    icon: '✍️',
+  },
+  {
+    id: 'brand_manager',
+    label: 'Brand Manager',
+    badge: 'Brand Manager',
+    desc: 'Review findings, approve or request changes on drafts, and monitor executive compliance metrics.',
+    icon: '🛡️',
+  },
+  {
+    id: 'knowledge_owner',
+    label: 'Knowledge Owner',
+    badge: 'Knowledge Owner',
+    desc: 'Manage approved brand sources, guidelines, and verified facts used for proof citations.',
+    icon: '📚',
+  },
+];
+
 const ROLES_INFO = [
   { label: 'Content Creator', desc: 'Submit drafts for brand-compliance review.' },
   { label: 'Brand Manager',   desc: 'Review findings and approve/reject drafts.' },
@@ -18,18 +42,28 @@ export default function RegisterPage() {
   const navigate           = useNavigate();
   const nameRef            = useRef(null);
 
-  const [name,        setName]        = useState('');
-  const [email,       setEmail]       = useState('');
-  const [password,    setPassword]    = useState('');
-  const [confirm,     setConfirm]     = useState('');
-  const [orgName,     setOrgName]     = useState('');
-  const [showPass,    setShowPass]    = useState(false);
-  const [errors,      setErrors]      = useState({});
-  const [apiError,    setApiError]    = useState('');
-  const [submitting,  setSubmitting]  = useState(false);
+  const [name,         setName]         = useState('');
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [confirm,      setConfirm]      = useState('');
+  const [role,         setRole]         = useState('creator');
+  const [orgName,      setOrgName]      = useState('');
+  const [joinDemoOrg,  setJoinDemoOrg]  = useState(false);
+  const [showPass,     setShowPass]     = useState(false);
+  const [errors,       setErrors]       = useState({});
+  const [apiError,     setApiError]     = useState('');
+  const [submitting,   setSubmitting]   = useState(false);
 
   useEffect(() => {
-    if (user) navigate('/dashboard', { replace: true });
+    if (user) {
+      if (user.role === 'creator') {
+        navigate('/drafts/new', { replace: true });
+      } else if (user.role === 'knowledge_owner' || user.role === 'owner') {
+        navigate('/knowledge-base', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
   }, [user, navigate]);
 
   useEffect(() => { nameRef.current?.focus(); }, []);
@@ -44,6 +78,8 @@ export default function RegisterPage() {
       errs.password = 'Password must be at least 6 characters.';
     if (password !== confirm)
       errs.confirm = 'Passwords do not match.';
+    if (!role)
+      errs.role = 'Please select your role.';
     return errs;
   }
 
@@ -55,8 +91,15 @@ export default function RegisterPage() {
     setErrors({});
     setSubmitting(true);
     try {
-      await register(name.trim(), email.trim().toLowerCase(), password, orgName.trim() || undefined);
-      // AuthProvider sets the user → useEffect above fires → navigate to dashboard
+      await register(
+        name.trim(),
+        email.trim().toLowerCase(),
+        password,
+        orgName.trim() || undefined,
+        role,
+        joinDemoOrg
+      );
+      // AuthProvider sets user → useEffect navigates to the role's fresh workspace
     } catch (err) {
       let msg = err.response?.data?.error || err.response?.data?.message;
       if (!msg) {
@@ -72,7 +115,7 @@ export default function RegisterPage() {
     }
   }
 
-  const canSubmit = name.trim() && email.trim() && password && confirm;
+  const canSubmit = name.trim() && email.trim() && password && confirm && role;
 
   return (
     <div className="login-page register-page" role="main">
@@ -89,7 +132,7 @@ export default function RegisterPage() {
         </div>
         <h1 className="login-hero">Create your workspace</h1>
         <p className="login-lead">
-          Sign up to review brand-compliance findings, manage approved facts, and keep every draft on-message.
+          Sign up to verify brand-compliance against your truth sources, approve content, and manage guidelines.
         </p>
 
         <ul className="register-role-list" aria-label="Available roles">
@@ -113,6 +156,58 @@ export default function RegisterPage() {
           </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
+
+            {/* Role Selection */}
+            <div className="form-group login-field register-roles-group">
+              <label className="form-label" id="reg-role-label">
+                Select your role <span className="register-required">*</span>
+              </label>
+              <div
+                className="register-role-picker"
+                role="radiogroup"
+                aria-labelledby="reg-role-label"
+              >
+                {ROLES.map((r) => {
+                  const isSelected = role === r.id;
+                  const badgeClass =
+                    r.id === 'brand_manager'
+                      ? 'r-manager'
+                      : r.id === 'knowledge_owner'
+                      ? 'r-owner'
+                      : 'r-creator';
+
+                  return (
+                    <div
+                      key={r.id}
+                      role="radio"
+                      aria-checked={isSelected}
+                      tabIndex={0}
+                      className={`register-role-card ${isSelected ? 'selected' : ''}`}
+                      onClick={() => setRole(r.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === ' ' || e.key === 'Enter') {
+                          e.preventDefault();
+                          setRole(r.id);
+                        }
+                      }}
+                    >
+                      <div className="register-role-card-header">
+                        <span className="register-role-icon" aria-hidden="true">{r.icon}</span>
+                        <div className="register-role-title-wrap">
+                          <span className="register-role-name">{r.label}</span>
+                          <span className={`pill ${badgeClass}`}>{r.badge}</span>
+                        </div>
+                        <div className="register-role-radio-circle" aria-hidden="true">
+                          {isSelected && <span className="register-role-radio-dot" />}
+                        </div>
+                      </div>
+                      <p className="register-role-card-desc">{r.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              {errors.role && <span className="form-error" role="alert">{errors.role}</span>}
+            </div>
 
             {/* Full name */}
             <div className="form-group login-field">
@@ -205,9 +300,27 @@ export default function RegisterPage() {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 autoComplete="organization"
-                placeholder="Acme Inc (leave blank for demo org)"
+                placeholder="e.g. Acme Studio (leave blank for your own workspace)"
               />
-              <span className="register-hint">Leave blank to join the Stellara Brands demo workspace.</span>
+              <span className="register-hint">
+                Leave blank to automatically create a fresh, dedicated workspace for you.
+              </span>
+            </div>
+
+            {/* Demo workspace opt-in */}
+            <div className="form-group login-field register-demo-opt">
+              <label className="register-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={joinDemoOrg}
+                  onChange={(e) => setJoinDemoOrg(e.target.checked)}
+                  className="register-checkbox"
+                />
+                <span>Join Stellara Brands demo workspace (pre-populated with sample drafts &amp; guidelines)</span>
+              </label>
+              <span className="register-hint">
+                Unchecked by default to provide a completely fresh, clean interface.
+              </span>
             </div>
 
             {/* API error */}
@@ -236,4 +349,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

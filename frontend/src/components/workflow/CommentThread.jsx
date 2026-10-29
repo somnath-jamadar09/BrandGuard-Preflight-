@@ -1,11 +1,13 @@
 import './CommentThread.css';
 
 const ROLE_BADGE = {
-  manager:  'badge-status-checked',
-  admin:    'badge-status-approved',
-  creator:  'badge-status-draft',
-  owner:    'badge-outdated',
-  reviewer: 'badge-status-inreview',
+  manager:         'badge-status-checked',
+  brand_manager:   'badge-status-checked',
+  admin:           'badge-status-approved',
+  creator:         'badge-status-draft',
+  knowledge_owner: 'badge-outdated',
+  owner:           'badge-outdated',
+  reviewer:        'badge-status-inreview',
 };
 
 function initials(name = '') {
@@ -23,33 +25,31 @@ export default function CommentThread({ comments }) {
 
   return (
     <div className="ct-list" role="list" aria-label="Comment thread">
-      {comments.map((c) => {
-        const isApproval = c.type === 'approved';
-        const isChangeReq = c.type === 'changes-requested';
+      {comments.map((comment) => {
+        const badgeClass = ROLE_BADGE[comment.authorRole] || 'badge-status-draft';
+        const formattedDate = comment.createdAt
+          ? new Date(comment.createdAt).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : '—';
 
         return (
-          <div
-            key={c._id}
-            role="listitem"
-            className={`ct-item${isApproval ? ' ct-item--approved' : ''}${isChangeReq ? ' ct-item--changes' : ''}`}
-          >
+          <div key={comment._id} className="ct-item" role="listitem">
             <div className="ct-avatar" aria-hidden="true">
-              {initials(c.authorName)}
+              {initials(comment.authorName)}
             </div>
             <div className="ct-body">
               <div className="ct-meta">
-                <span className="ct-author">{c.authorName}</span>
-                <span className={`badge ${ROLE_BADGE[c.authorRole] ?? 'badge-status-draft'}`}>
-                  {c.authorRole}
+                <span className="ct-author">{comment.authorName}</span>
+                <span className={`badge ${badgeClass} ct-role`}>
+                  {comment.authorRole}
                 </span>
-                <time className="ct-time" dateTime={c.createdAt}>
-                  {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </time>
+                <span className="ct-date">{formattedDate}</span>
               </div>
-              <p className="ct-text">
-                {isApproval && <span className="ct-checkmark" aria-hidden="true">✓ </span>}
-                {c.text}
-              </p>
+              <p className="ct-text">{comment.body}</p>
             </div>
           </div>
         );

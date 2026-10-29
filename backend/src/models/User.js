@@ -19,6 +19,7 @@ const ROLES = [
   'brand_manager',
   'manager',
   'knowledge_owner',
+  'owner',
   'authorised_reviewer',
 ];
 

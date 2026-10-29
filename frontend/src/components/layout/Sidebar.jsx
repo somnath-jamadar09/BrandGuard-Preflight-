@@ -2,30 +2,33 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import { useOrg } from '../../context/useOrg';
 import { useTheme } from '../../context/ThemeContext';
+import { hasRoleAccess } from './RequireAuth';
 import './Sidebar.css';
 
 const NAV_ITEMS = [
   // Primary workspace
-  { to: '/drafts/new',     label: 'New Draft',            roles: ['creator', 'admin'],                          group: 'Primary workspace',        icon: '＋' },
-  { to: '/drafts/mine',    label: 'My Drafts',            roles: ['creator', 'admin'],                          group: 'Primary workspace',        icon: '▤' },
-  { to: '/drafts',         label: 'All Submissions',      roles: ['manager', 'admin', 'owner', 'viewer'],       group: 'Primary workspace',        icon: '☰' },
-  { to: '/dashboard',      label: 'Executive Dashboard',  roles: ['manager', 'admin', 'owner', 'viewer'],       group: 'Primary workspace',        icon: '◈' },
+  { to: '/drafts/new',     label: 'New Draft',            roles: ['creator', 'admin'],                                                               group: 'Primary workspace',        icon: '＋' },
+  { to: '/drafts/mine',    label: 'My Drafts',            roles: ['creator', 'admin'],                                                               group: 'Primary workspace',        icon: '▤' },
+  { to: '/drafts',         label: 'All Submissions',      roles: ['manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner', 'viewer'],        group: 'Primary workspace',        icon: '☰' },
+  { to: '/dashboard',      label: 'Executive Dashboard',  roles: ['manager', 'brand_manager', 'admin', 'owner', 'knowledge_owner', 'viewer'],        group: 'Primary workspace',        icon: '◈' },
   // Knowledge & governance
-  { to: '/knowledge-base', label: 'Guidelines & Sources', roles: ['creator', 'manager', 'owner', 'admin', 'viewer'], group: 'Knowledge & governance', icon: '❏' },
-  { to: '/facts',          label: 'Verified Facts',       roles: ['manager', 'owner', 'admin'],                 group: 'Knowledge & governance',   icon: '✓' },
-  { to: '/terms',          label: 'Terminology Rules',    roles: ['manager', 'owner', 'admin'],                 group: 'Knowledge & governance',   icon: '!' },
+  { to: '/knowledge-base', label: 'Guidelines & Sources', roles: ['creator', 'manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin', 'viewer'], group: 'Knowledge & governance', icon: '❏' },
+  { to: '/facts',          label: 'Verified Facts',       roles: ['manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin'],                 group: 'Knowledge & governance',   icon: '✓' },
+  { to: '/terms',          label: 'Terminology Rules',    roles: ['manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin'],                 group: 'Knowledge & governance',   icon: '!' },
   // Compliance & verification
-  { to: '/passports',      label: 'Brand Passports',      roles: ['creator', 'manager', 'owner', 'admin', 'viewer'], group: 'Compliance & verification', icon: '◉' },
-  { to: '/audit',          label: 'Audit Trail & History',roles: ['manager', 'admin', 'viewer'],                group: 'Compliance & verification', icon: '≡' },
-  { to: '/debug',          label: 'Guideline Debugger',   roles: ['manager', 'admin'],                          group: 'Compliance & verification', icon: '⌥' },
+  { to: '/passports',      label: 'Brand Passports',      roles: ['creator', 'manager', 'brand_manager', 'owner', 'knowledge_owner', 'admin', 'viewer'], group: 'Compliance & verification', icon: '◉' },
+  { to: '/audit',          label: 'Audit Trail & History',roles: ['manager', 'brand_manager', 'admin', 'viewer', 'knowledge_owner'],                group: 'Compliance & verification', icon: '≡' },
+  { to: '/debug',          label: 'Guideline Debugger',   roles: ['manager', 'brand_manager', 'admin'],                                              group: 'Compliance & verification', icon: '⌥' },
 ];
 
 const ROLE_LABEL = {
-  creator: 'Content Creator',
-  manager: 'Brand Manager',
-  owner:   'Knowledge Owner',
-  admin:   'System Administrator',
-  viewer:  'Auditor',
+  creator:         'Content Creator',
+  brand_manager:   'Brand Manager',
+  manager:         'Brand Manager',
+  knowledge_owner: 'Knowledge Owner',
+  owner:           'Knowledge Owner',
+  admin:           'System Administrator',
+  viewer:          'Auditor',
 };
 
 function initials(name, email) {
@@ -44,13 +47,20 @@ export default function Sidebar({ open = false, onNavigate }) {
   const role = user?.role ?? '';
 
   const visibleItems = NAV_ITEMS.filter((item) =>
-    item.roles.includes(role)
+    hasRoleAccess(role, item.roles)
   );
 
   function handleLogout() {
     logout();
     navigate('/login');
   }
+
+  const roleBadgeClass =
+    role === 'brand_manager' || role === 'manager'
+      ? 'r-manager'
+      : role === 'knowledge_owner' || role === 'owner'
+      ? 'r-owner'
+      : `r-${role}`;
 
   let lastGroup = '';
 
@@ -106,7 +116,7 @@ export default function Sidebar({ open = false, onNavigate }) {
             </div>
             <div className="sidebar-user-info">
               <b className="sidebar-user-name">{user.name ?? user.email}</b>
-              <span className={`pill r-${role}`}>{(ROLE_LABEL[role] || role).toUpperCase()}</span>
+              <span className={`pill ${roleBadgeClass}`}>{(ROLE_LABEL[role] || role).toUpperCase()}</span>
             </div>
           </div>
         )}

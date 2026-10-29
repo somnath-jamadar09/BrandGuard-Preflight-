@@ -6,7 +6,7 @@ import './ApprovalControls.css';
 export default function ApprovalControls({ role, draftStatus, draftId, onApprove, onRequestChanges, onOverride }) {
   const [showOverride, setShowOverride] = useState(false);
 
-  const isManager = role === 'manager' || role === 'admin';
+  const isManager = role === 'manager' || role === 'brand_manager' || role === 'admin';
   const isCreator = role === 'creator';
   const isApproved = draftStatus === 'approved';
 

@@ -105,15 +105,15 @@ function hasRole(userRole, requiredRoles) {
  */
 const { sendError } = require('../utils/response');
 
-const CAN_SUBMIT_DRAFT = ['creator', 'editor', 'manager', 'admin', 'owner'];
-const CAN_REVIEW = ['creator', 'editor', 'manager', 'reviewer', 'admin', 'owner'];
-const CAN_MANAGE_SOURCE = ['creator', 'editor', 'manager', 'reviewer', 'admin', 'owner'];
-const CAN_EDIT_SOURCE = ['manager', 'reviewer', 'admin', 'knowledge_owner'];
-const CAN_UPDATE_FINDING = ['creator', 'reviewer', 'brand_manager', 'manager', 'admin', 'owner'];
-const CAN_MANAGE_FACTS = ['knowledge_owner', 'admin'];
-const CAN_APPROVE = ['manager'];
-const CAN_OVERRIDE = ['reviewer', 'manager'];
-const CAN_MANAGE_ORG = ['manager'];
+const CAN_SUBMIT_DRAFT = ['creator', 'editor', 'brand_manager', 'manager', 'admin', 'knowledge_owner', 'owner'];
+const CAN_REVIEW = ['creator', 'editor', 'brand_manager', 'manager', 'reviewer', 'admin', 'knowledge_owner', 'owner'];
+const CAN_MANAGE_SOURCE = ['creator', 'editor', 'brand_manager', 'manager', 'reviewer', 'admin', 'knowledge_owner', 'owner'];
+const CAN_EDIT_SOURCE = ['brand_manager', 'manager', 'reviewer', 'admin', 'knowledge_owner', 'owner'];
+const CAN_UPDATE_FINDING = ['creator', 'reviewer', 'brand_manager', 'manager', 'admin', 'knowledge_owner', 'owner'];
+const CAN_MANAGE_FACTS = ['knowledge_owner', 'owner', 'admin'];
+const CAN_APPROVE = ['brand_manager', 'manager', 'admin'];
+const CAN_OVERRIDE = ['reviewer', 'brand_manager', 'manager', 'admin'];
+const CAN_MANAGE_ORG = ['brand_manager', 'manager', 'admin'];
 
 function requireRole(...roles) {
   const allowedRoles = roles.flat().filter(Boolean);

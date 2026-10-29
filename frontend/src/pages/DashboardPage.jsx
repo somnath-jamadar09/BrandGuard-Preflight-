@@ -4,12 +4,14 @@ import AppLayout from '../components/layout/AppLayout';
 import OrgMetricsCard from '../components/dashboard/OrgMetricsCard';
 import RecentDraftsTable from '../components/dashboard/RecentDraftsTable';
 import InsightsPanel from '../components/dashboard/InsightsPanel';
+import { useAuth } from '../context/useAuth';
 import { getDrafts } from '../api/drafts';
 import { getRuleInsights, getMistakeInsights, getTimeToApproval } from '../api/insights';
 import { SAMPLE_DRAFTS, SAMPLE_MISTAKES, SAMPLE_RULES, USE_MOCK } from '../utils/mocks';
 import './DashboardPage.css';
 
 export default function DashboardPage({ myDraftsOnly = false, auditMode = false, debugMode = false }) {
+  const { user } = useAuth();
   const [drafts, setDrafts] = useState([]);
   const [mistakes, setMistakes] = useState([]);
   const [rules, setRules] = useState([]);
@@ -27,19 +29,37 @@ export default function DashboardPage({ myDraftsOnly = false, auditMode = false,
   const loadDashboardData = useCallback(async () => {
     try {
       let fetchedDrafts = [];
+      let draftsApiSucceeded = false;
       try {
         const draftsRes = await getDrafts({ limit: 50 });
         fetchedDrafts = draftsRes.data?.data ?? draftsRes.data?.drafts ?? draftsRes.data ?? [];
+        draftsApiSucceeded = true;
       } catch {}
 
-      if ((!fetchedDrafts || fetchedDrafts.length === 0) && USE_MOCK) {
+      if (!draftsApiSucceeded && USE_MOCK) {
         fetchedDrafts = SAMPLE_DRAFTS;
       }
+
+      // If viewing my drafts only, filter by current logged-in user
+      if (myDraftsOnly && user) {
+        fetchedDrafts = fetchedDrafts.filter((d) => {
+          const authorId = d.author?._id || d.author;
+          const authorEmail = d.owner?.email || d.author?.email || d.createdBy;
+          const authorName = d.owner?.name || d.author?.name;
+          return (
+            (user._id && authorId === user._id) ||
+            (user.email && authorEmail === user.email) ||
+            (user.name && authorName === user.name)
+          );
+        });
+      }
+
       setDrafts(fetchedDrafts || []);
 
       let fetchedMistakes = [];
       let fetchedRules = [];
       let fetchedTta = null;
+      let insightsApiSucceeded = false;
 
       try {
         const [mistakesRes, rulesRes, ttaRes] = await Promise.allSettled([
@@ -54,6 +74,7 @@ export default function DashboardPage({ myDraftsOnly = false, auditMode = false,
             mistakesRes.value.data?.mistakeInsights ??
             mistakesRes.value.data ??
             [];
+          insightsApiSucceeded = true;
         }
 
         if (rulesRes.status === 'fulfilled') {
@@ -62,6 +83,7 @@ export default function DashboardPage({ myDraftsOnly = false, auditMode = false,
             rulesRes.value.data?.ruleInsights ??
             rulesRes.value.data ??
             [];
+          insightsApiSucceeded = true;
         }
 
         if (ttaRes.status === 'fulfilled') {
@@ -69,13 +91,13 @@ export default function DashboardPage({ myDraftsOnly = false, auditMode = false,
         }
       } catch {}
 
-      setMistakes(fetchedMistakes.length > 0 ? fetchedMistakes : (USE_MOCK ? SAMPLE_MISTAKES : []));
-      setRules(fetchedRules.length > 0 ? fetchedRules : (USE_MOCK ? SAMPLE_RULES : []));
+      setMistakes(fetchedMistakes.length > 0 ? fetchedMistakes : (!insightsApiSucceeded && USE_MOCK ? SAMPLE_MISTAKES : []));
+      setRules(fetchedRules.length > 0 ? fetchedRules : (!insightsApiSucceeded && USE_MOCK ? SAMPLE_RULES : []));
       setTimeToApproval(fetchedTta);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [myDraftsOnly, user]);
 
   useEffect(() => {
     loadDashboardData();
@@ -89,6 +111,8 @@ export default function DashboardPage({ myDraftsOnly = false, auditMode = false,
   const avgHoursFormatted =
     timeToApproval?.avgHours != null
       ? `${timeToApproval.avgHours}h`
+      : totalDrafts === 0
+      ? '—'
       : '1.8h';
 
   const metrics = {
@@ -96,7 +120,7 @@ export default function DashboardPage({ myDraftsOnly = false, auditMode = false,
     inReviewCount,
     avgTimeToApprove: avgHoursFormatted,
     openFindings: inReviewCount * 3,
-    citationRate: '94.6%',
+    citationRate: totalDrafts === 0 ? '—' : '94.6%',
   };
 
   const pageTitle = auditMode

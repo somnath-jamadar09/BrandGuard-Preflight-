@@ -1,6 +1,6 @@
-/* RegisterPage.css — supplemental styles for /register */
+/* RegisterPage.css — styles for /register with role selection */
 
-/* Role list on left panel */
+/* Left panel role description list */
 .register-role-list {
   list-style: none;
   padding: 0;
@@ -29,6 +29,131 @@
 .register-role-desc {
   font-size: 0.78rem;
   opacity: 0.72;
+}
+
+/* Wider card for register page to fit role selector comfortably */
+.register-page .login-card {
+  max-width: 520px;
+  width: 100%;
+}
+
+/* Interactive Role Picker in registration form */
+.register-roles-group {
+  margin-bottom: 1.25rem;
+}
+
+.register-required {
+  color: var(--color-verdict-contradicted, #ef4444);
+}
+
+.register-role-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.register-role-card {
+  padding: 0.75rem 0.9rem;
+  border: 1.5px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--color-bg, #ffffff);
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+  outline: none;
+  position: relative;
+  user-select: none;
+}
+
+.register-role-card:hover {
+  border-color: var(--color-brand, #2563eb);
+  background: color-mix(in srgb, var(--color-brand, #2563eb) 4%, var(--color-bg, #ffffff));
+}
+
+.register-role-card:focus-visible {
+  outline: 2px solid var(--color-brand, #2563eb);
+  outline-offset: 2px;
+}
+
+.register-role-card.selected {
+  border-color: var(--color-brand, #2563eb);
+  background: color-mix(in srgb, var(--color-brand, #2563eb) 8%, var(--color-bg, #ffffff));
+  box-shadow: 0 0 0 1px var(--color-brand, #2563eb), 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+.register-role-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.register-role-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.register-role-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.register-role-name {
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--color-text, #0f172a);
+}
+
+.register-role-radio-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border, #cbd5e1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease;
+}
+
+.register-role-card.selected .register-role-radio-circle {
+  border-color: var(--color-brand, #2563eb);
+}
+
+.register-role-radio-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-brand, #2563eb);
+}
+
+.register-role-card-desc {
+  margin: 0.35rem 0 0 2.2rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary, #64748b);
+}
+
+/* Demo workspace checkbox option */
+.register-demo-opt {
+  margin-top: -0.25rem;
+  margin-bottom: 1rem;
+}
+
+.register-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--color-text, #1e293b);
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.register-checkbox {
+  margin-top: 0.15rem;
+  accent-color: var(--color-brand, #2563eb);
+  cursor: pointer;
 }
 
 /* Register link below form */
@@ -69,26 +194,16 @@
   margin-left: 0.25rem;
 }
 
-/* Hint text below org input */
+/* Hint text below inputs */
 .register-hint {
   display: block;
-  font-size: 0.72rem;
-  opacity: 0.6;
+  font-size: 0.73rem;
+  opacity: 0.7;
   margin-top: 0.25rem;
+  line-height: 1.3;
 }
 
-/* Wider card for register page to fit more fields */
-.register-page .login-card {
-  max-width: 440px;
-}
-
-/* Password strength hint */
-.register-strength {
-  font-size: 0.72rem;
-  margin-top: 0.2rem;
-}
-
-/* Dark-mode adjustments */
+/* Dark mode adjustments */
 [data-theme="dark"] .register-role-item {
   background: rgba(255, 255, 255, 0.04);
 }
@@ -97,3 +212,29 @@
   color: var(--color-text, #f0f0f0);
 }
 
+[data-theme="dark"] .register-role-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .register-role-card:hover {
+  border-color: var(--color-brand, #3b82f6);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+[data-theme="dark"] .register-role-card.selected {
+  border-color: var(--color-brand, #3b82f6);
+  background: rgba(59, 130, 246, 0.14);
+}
+
+[data-theme="dark"] .register-role-name {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .register-role-card-desc {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .register-checkbox-label {
+  color: #e2e8f0;
+}
