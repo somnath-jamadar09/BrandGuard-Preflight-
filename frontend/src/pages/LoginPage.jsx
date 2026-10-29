@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import { getApiBaseUrl, setApiBaseUrl } from '../api/client';
 import './LoginPage.css';
 
 /**
@@ -23,11 +24,21 @@ export default function LoginPage() {
   const location         = useLocation();
   const emailRef         = useRef(null);
 
-  const [email,      setEmail]      = useState('');
-  const [password,   setPassword]   = useState('');
-  const [errors,     setErrors]     = useState({});
-  const [apiError,   setApiError]   = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [email,          setEmail]          = useState('');
+  const [password,       setPassword]       = useState('');
+  const [errors,         setErrors]         = useState({});
+  const [apiError,       setApiError]       = useState('');
+  const [submitting,     setSubmitting]     = useState(false);
+
+  // API Server configuration & status
+  const [apiUrl,         setApiUrl]         = useState(getApiBaseUrl);
+  const [apiStatus,      setApiStatus]      = useState('checking'); // 'online' | 'offline' | 'checking'
+  const [showConfig,     setShowConfig]     = useState(false);
+  const [customInput,    setCustomInput]    = useState(getApiBaseUrl);
+
+  const isLocalHost = apiUrl.includes('localhost') || apiUrl.includes('127.0.0.1');
+  const isCloudHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const showLocalWarning = isCloudHost && isLocalHost;
 
   const from = location.state?.from?.pathname || '/dashboard';
 
@@ -36,6 +47,23 @@ export default function LoginPage() {
   }, [user, navigate, from]);
 
   useEffect(() => { emailRef.current?.focus(); }, []);
+
+  // Check backend server health
+  useEffect(() => {
+    let active = true;
+    setApiStatus('checking');
+    fetch(`${apiUrl}/health`, { method: 'GET' })
+      .then((res) => {
+        if (!active) return;
+        setApiStatus(res.ok ? 'online' : 'offline');
+      })
+      .catch(() => {
+        if (!active) return;
+        setApiStatus('offline');
+      });
+
+    return () => { active = false; };
+  }, [apiUrl]);
 
   function validate() {
     const errs = {};
@@ -65,7 +93,11 @@ export default function LoginPage() {
       let msg = err.response?.data?.error || err.response?.data?.message;
       if (!msg) {
         if (!err.response) {
-          msg = 'Cannot reach the server. If on Render free tier it may take 30–50 s to wake up — please wait and retry.';
+          if (showLocalWarning) {
+            msg = `Cannot reach server at ${apiUrl}. Since your frontend is hosted on Vercel, it cannot connect to "localhost". Click "Change" below to set your live backend URL (e.g. https://your-backend.onrender.com).`;
+          } else {
+            msg = `Cannot reach server at ${apiUrl}. If on Render free tier, the service may be asleep (takes 30–50s to wake up on first launch). Please wait 30 seconds and click again.`;
+          }
         } else {
           msg = 'Login failed. Check your email and password.';
         }
@@ -81,6 +113,23 @@ export default function LoginPage() {
     setPassword(demo.password);
     setApiError('');
     setErrors({});
+  }
+
+  function handleSaveApiUrl() {
+    if (!customInput.trim()) return;
+    setApiBaseUrl(customInput);
+    setApiUrl(getApiBaseUrl());
+    setShowConfig(false);
+    setApiError('');
+  }
+
+  function handleResetApiUrl() {
+    setApiBaseUrl(null);
+    const def = getApiBaseUrl();
+    setCustomInput(def);
+    setApiUrl(def);
+    setShowConfig(false);
+    setApiError('');
   }
 
   const canSubmit = email.trim() !== '' && password !== '';
@@ -208,6 +257,57 @@ export default function LoginPage() {
                 <span className={`pill ${demo.roleClass}`}>{demo.role}</span>
               </button>
             ))}
+          </div>
+
+          {/* Server Connection Bar */}
+          <div className="login-api-config">
+            <div className="api-config-summary">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                <span className={`api-status-dot ${apiStatus}`} title={`Backend status: ${apiStatus}`} />
+                <span>Backend: <code>{apiUrl}</code></span>
+              </div>
+              <button
+                type="button"
+                className="btn-link-sm"
+                onClick={() => setShowConfig((v) => !v)}
+              >
+                {showConfig ? 'Close' : 'Change'}
+              </button>
+            </div>
+
+            {showLocalWarning && (
+              <span className="api-warning-badge">
+                ⚠️ Frontend is on Vercel but API points to localhost. Click &quot;Change&quot; to paste your live backend URL (e.g. from Render).
+              </span>
+            )}
+
+            {showConfig && (
+              <div className="api-config-inputs">
+                <input
+                  type="text"
+                  className="form-input form-input-sm"
+                  placeholder="https://brandguard-api.onrender.com"
+                  value={customInput}
+                  onChange={(e) => setCustomInput(e.target.value)}
+                />
+                <div className="api-config-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={handleSaveApiUrl}
+                  >
+                    Save &amp; Connect
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={handleResetApiUrl}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <p className="login-disclaimer">

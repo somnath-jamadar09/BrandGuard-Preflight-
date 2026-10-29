@@ -308,3 +308,82 @@
     animation: none;
   }
 }
+
+/* Server connection bar */
+.login-api-config {
+  margin-top: 1rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.78rem;
+}
+
+.api-config-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.api-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.api-status-dot.online {
+  background: var(--color-verdict-supported, #10b981);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.api-status-dot.offline {
+  background: var(--color-verdict-contradicted, #ef4444);
+}
+
+.api-status-dot.checking {
+  background: var(--color-verdict-unclear, #f59e0b);
+}
+
+.api-config-summary code {
+  font-size: 0.74rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  word-break: break-all;
+}
+
+.btn-link-sm {
+  background: none;
+  border: none;
+  color: var(--color-brand, #2563eb);
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.api-config-inputs {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.api-config-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.api-warning-badge {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--color-verdict-unclear, #f59e0b);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
