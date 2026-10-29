@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import RequireAuth from './components/layout/RequireAuth';
 
 import LoginPage         from './pages/LoginPage';
+import RegisterPage      from './pages/RegisterPage';
 import DashboardPage     from './pages/DashboardPage';
 import KnowledgeBasePage from './pages/KnowledgeBasePage';
 import DraftSubmitPage   from './pages/DraftSubmitPage';
@@ -26,6 +27,7 @@ export default function App() {
 
             <Routes>
               <Route path="/login"     element={<LoginPage />} />
+              <Route path="/register"  element={<RegisterPage />} />
               <Route path="/forbidden" element={<ForbiddenPage />} />
 
               <Route

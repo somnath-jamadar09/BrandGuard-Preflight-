@@ -1,13 +1,14 @@
 /**
- * User.js — User Mongoose model.
+ * User.js — User Mongoose model with password authentication.
  *
  * Users are always members of exactly one Org (orgId).
- * Passwords are not stored here; authentication is handled externally
- * (magic-link / OAuth) or via a future auth service — the User record
- * is the principal that JWTs are issued against.
+ * Passwords are bcrypt-hashed and verified via comparePassword().
  */
 
+'use strict';
+
 const mongoose = require('mongoose');
+const bcrypt   = require('bcryptjs');
 
 const ROLES = [
   'admin',
@@ -36,6 +37,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 120,
+    },
+
+    /** Bcrypt-hashed password. Null for legacy/SSO-only users. */
+    passwordHash: {
+      type: String,
+      default: null,
+      select: true,   // included explicitly when needed
     },
 
     /** Reference to the Org this user belongs to. */
@@ -73,6 +81,25 @@ const userSchema = new mongoose.Schema(
 // Compound index: look up users within an org efficiently.
 userSchema.index({ orgId: 1, email: 1 });
 userSchema.index({ orgId: 1, role: 1 });
+
+/**
+ * Set (hash) the user's password.
+ * @param {string} plaintext
+ */
+userSchema.methods.setPassword = async function (plaintext) {
+  this.passwordHash = await bcrypt.hash(plaintext, 10);
+};
+
+/**
+ * Verify a plaintext password against the stored hash.
+ * Returns true if password matches OR if no password is set (demo/legacy mode).
+ * @param {string} plaintext
+ * @returns {Promise<boolean>}
+ */
+userSchema.methods.comparePassword = async function (plaintext) {
+  if (!this.passwordHash) return true;   // demo/legacy: any password accepted
+  return bcrypt.compare(plaintext, this.passwordHash);
+};
 
 module.exports = mongoose.model('User', userSchema);
 module.exports.ROLES = ROLES;

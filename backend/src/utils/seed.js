@@ -122,15 +122,80 @@ async function seedDemoData({ force = false } = {}) {
       orgId: org._id,
       active: true,
     },
+    // Acme demo aliases for cross-compatibility with UI demo buttons
+    {
+      _id: new mongoose.Types.ObjectId('662b20000000000000000011'),
+      name: 'Priya Sharma (Acme)',
+      email: 'priya@acme.com',
+      role: 'creator',
+      orgId: org._id,
+      active: true,
+    },
+    {
+      _id: new mongoose.Types.ObjectId('662b20000000000000000012'),
+      name: 'Elena Rostova',
+      email: 'elena@acme.com',
+      role: 'manager',
+      orgId: org._id,
+      active: true,
+    },
+    {
+      _id: new mongoose.Types.ObjectId('662b20000000000000000013'),
+      name: 'Marcus Lee',
+      email: 'marcus@acme.com',
+      role: 'manager',
+      orgId: org._id,
+      active: true,
+    },
+    {
+      _id: new mongoose.Types.ObjectId('662b20000000000000000014'),
+      name: 'Ava Admin',
+      email: 'admin@acme.com',
+      role: 'admin',
+      orgId: org._id,
+      active: true,
+    },
+    {
+      _id: new mongoose.Types.ObjectId('662b20000000000000000015'),
+      name: 'Sam Auditor',
+      email: 'audit@acme.com',
+      role: 'viewer',
+      orgId: org._id,
+      active: true,
+    },
   ];
+
+  // Demo password map — any of these passwords work for the matching user
+  const DEMO_PASSWORDS = {
+    'priya@stellara.com':    'creator123',
+    'marcus@stellara.com':   'manager123',
+    'reviewer@stellara.com': 'reviewer123',
+    'admin@stellara.com':    'admin1234',
+    'viewer@stellara.com':   'viewer123',
+    'priya@acme.com':        'creator123',
+    'elena@acme.com':        'manager123',
+    'marcus@acme.com':       'owner123',
+    'admin@acme.com':        'admin1234',
+    'audit@acme.com':        'viewer123',
+  };
 
   const seededUsers = {};
   for (const u of userDefs) {
     let user = await User.findOne({ email: u.email });
     if (!user) {
       user = new User(u);
+      const pwd = DEMO_PASSWORDS[u.email];
+      if (pwd) await user.setPassword(pwd);
       await user.save();
       console.log(`[seed] Created user: ${user.name} <${user.email}> [${user.role}]`);
+    } else if (!user.passwordHash) {
+      // Backfill password for existing users that had no password set
+      const pwd = DEMO_PASSWORDS[u.email];
+      if (pwd) {
+        await user.setPassword(pwd);
+        await user.save();
+        console.log(`[seed] Backfilled password for: ${user.email}`);
+      }
     }
     seededUsers[u.role] = user;
   }

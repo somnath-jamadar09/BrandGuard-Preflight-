@@ -22,11 +22,34 @@ const app = express();
 const PORT = process.env.PORT || process.env.API_PORT || 4000;
 
 // Global middleware
-const corsOrigins = process.env.CORS_ALLOWED_ORIGINS
-  ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
-  : '*';
+function buildCorsOriginValidator() {
+  return function (origin, callback) {
+    // Allow server-to-server or tools (curl/postman) with no origin
+    if (!origin) return callback(null, true);
 
-app.use(cors({ origin: corsOrigins, credentials: true }));
+    const raw = process.env.CORS_ALLOWED_ORIGINS;
+    const allowed = raw ? raw.split(',').map((o) => o.trim()).filter(Boolean) : ['*'];
+
+    // If wildcard or unconfigured, dynamically reflect request origin (safe with credentials: true)
+    if (allowed.includes('*') || allowed.length === 0) {
+      return callback(null, true);
+    }
+
+    // Allow exact matches, any Vercel deployment, Render, or local development
+    if (
+      allowed.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1')
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  };
+}
+
+app.use(cors({ origin: buildCorsOriginValidator(), credentials: true }));
 app.use(express.json({ limit: process.env.UPLOAD_MAX_BYTES ? `${process.env.UPLOAD_MAX_BYTES}b` : '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));

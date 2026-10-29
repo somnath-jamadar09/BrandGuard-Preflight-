@@ -1,39 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import './LoginPage.css';
 
+/**
+ * Demo quick-login accounts.
+ * Passwords match the seeds set in backend/src/utils/seed.js
+ */
 const DEMO_LOGINS = [
-  { email: 'priya@acme.com',  password: 'creator123', name: 'Priya Sharma',  role: 'Content Creator',     roleClass: 'r-creator' },
-  { email: 'elena@acme.com',  password: 'manager123', name: 'Elena Rostova', role: 'Brand Manager',        roleClass: 'r-manager' },
-  { email: 'marcus@acme.com', password: 'owner123',   name: 'Marcus Lee',    role: 'Knowledge Owner',      roleClass: 'r-owner' },
-  { email: 'admin@acme.com',  password: 'admin123',   name: 'Ava Admin',     role: 'System Administrator', roleClass: 'r-admin' },
-  { email: 'audit@acme.com',  password: 'viewer123',  name: 'Sam Auditor',   role: 'Auditor',              roleClass: 'r-viewer' },
+  { email: 'priya@acme.com',   password: 'creator123', name: 'Priya Sharma',  role: 'Content Creator',     roleClass: 'r-creator' },
+  { email: 'elena@acme.com',   password: 'manager123', name: 'Elena Rostova', role: 'Brand Manager',        roleClass: 'r-manager' },
+  { email: 'marcus@acme.com',  password: 'owner123',   name: 'Marcus Lee',    role: 'Knowledge Owner',      roleClass: 'r-owner' },
+  { email: 'admin@acme.com',   password: 'admin1234',  name: 'Ava Admin',     role: 'System Administrator', roleClass: 'r-admin' },
+  { email: 'audit@acme.com',   password: 'viewer123',  name: 'Sam Auditor',   role: 'Auditor / Viewer',     roleClass: 'r-viewer' },
 ];
 
 export default function LoginPage() {
   const { login, user } = useAuth();
-  const { toggleTheme } = useTheme();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const emailRef = useRef(null);
+  const { toggleTheme }  = useTheme();
+  const navigate         = useNavigate();
+  const location         = useLocation();
+  const emailRef         = useRef(null);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [orgDomain, setOrgDomain] = useState('');
-  const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState('');
+  const [email,      setEmail]      = useState('');
+  const [password,   setPassword]   = useState('');
+  const [errors,     setErrors]     = useState({});
+  const [apiError,   setApiError]   = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const from = location.state?.from?.pathname || '/dashboard';
+
   useEffect(() => {
     if (user) navigate(from, { replace: true });
   }, [user, navigate, from]);
 
-  useEffect(() => {
-    emailRef.current?.focus();
-  }, []);
+  useEffect(() => { emailRef.current?.focus(); }, []);
 
   function validate() {
     const errs = {};
@@ -44,6 +46,8 @@ export default function LoginPage() {
     }
     if (!password) {
       errs.password = 'Password is required.';
+    } else if (password.length < 6) {
+      errs.password = 'Password must be at least 6 characters.';
     }
     return errs;
   }
@@ -51,22 +55,21 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setApiError('');
-
     const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
-
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setErrors({});
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(email.trim().toLowerCase(), password);
     } catch (err) {
-      const msg =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        'Login failed. Check your credentials and try again.';
+      let msg = err.response?.data?.error || err.response?.data?.message;
+      if (!msg) {
+        if (!err.response) {
+          msg = 'Cannot reach the server. If on Render free tier it may take 30–50 s to wake up — please wait and retry.';
+        } else {
+          msg = 'Login failed. Check your email and password.';
+        }
+      }
       setApiError(msg);
     } finally {
       setSubmitting(false);
@@ -76,7 +79,6 @@ export default function LoginPage() {
   function fillDemo(demo) {
     setEmail(demo.email);
     setPassword(demo.password);
-    setOrgDomain('acme-global');
     setApiError('');
     setErrors({});
   }
@@ -88,14 +90,9 @@ export default function LoginPage() {
       <div className="login-blob login-blob-a" aria-hidden="true" />
       <div className="login-blob login-blob-b" aria-hidden="true" />
 
-      <div
-        aria-live="assertive"
-        aria-atomic="true"
-        className="sr-only"
-      >
-        {apiError}
-      </div>
+      <div aria-live="assertive" aria-atomic="true" className="sr-only">{apiError}</div>
 
+      {/* ── Left panel ── */}
       <section className="login-left" aria-label="Product introduction">
         <div className="login-brand">
           <span className="login-shield" aria-hidden="true">✓</span>
@@ -103,7 +100,8 @@ export default function LoginPage() {
         </div>
         <h1 className="login-hero">Brand compliance, with proof.</h1>
         <p className="login-lead">
-          Every finding cites your own approved sources. Your role decides what you can see and do.
+          Every finding cites your own approved sources.<br />
+          Your role decides what you can see and do.
         </p>
         <div className="login-scene" aria-hidden="true">
           <div className="login-cube-wrap">
@@ -122,25 +120,20 @@ export default function LoginPage() {
         </div>
       </section>
 
+      {/* ── Right panel ── */}
       <section className="login-right">
         <div className="login-card card" role="group" aria-labelledby="login-heading">
           <div className="login-card-head">
             <h2 id="login-heading">Log in to workspace</h2>
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={toggleTheme}
-              aria-label="Switch theme"
-            >
+            <button type="button" className="btn btn-sm" onClick={toggleTheme} aria-label="Switch theme">
               Theme
             </button>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit} noValidate>
+            {/* Email */}
             <div className="form-group login-field">
-              <label className="form-label" htmlFor="login-email">
-                Workplace email
-              </label>
+              <label className="form-label" htmlFor="login-email">Workplace email</label>
               <input
                 ref={emailRef}
                 id="login-email"
@@ -154,16 +147,13 @@ export default function LoginPage() {
                 placeholder="priya@acme.com"
               />
               {errors.email && (
-                <span id="login-email-error" className="form-error" role="alert">
-                  {errors.email}
-                </span>
+                <span id="login-email-error" className="form-error" role="alert">{errors.email}</span>
               )}
             </div>
 
+            {/* Password */}
             <div className="form-group login-field">
-              <label className="form-label" htmlFor="login-password">
-                Password
-              </label>
+              <label className="form-label" htmlFor="login-password">Password</label>
               <input
                 id="login-password"
                 type="password"
@@ -173,32 +163,15 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 aria-describedby={errors.password ? 'login-password-error' : undefined}
                 aria-invalid={!!errors.password}
+                placeholder="••••••••"
               />
               {errors.password && (
-                <span id="login-password-error" className="form-error" role="alert">
-                  {errors.password}
-                </span>
+                <span id="login-password-error" className="form-error" role="alert">{errors.password}</span>
               )}
             </div>
 
-            <div className="form-group login-field">
-              <label className="form-label" htmlFor="login-org">
-                Organization domain
-              </label>
-              <input
-                id="login-org"
-                type="text"
-                className="form-input"
-                value={orgDomain}
-                onChange={(e) => setOrgDomain(e.target.value)}
-                autoComplete="organization"
-                placeholder="acme-global"
-              />
-            </div>
-
-            <p className="login-api-error" role="alert">
-              {apiError}
-            </p>
+            {/* API error */}
+            {apiError && <p className="login-api-error" role="alert">{apiError}</p>}
 
             <button
               type="submit"
@@ -208,17 +181,21 @@ export default function LoginPage() {
               aria-busy={submitting}
             >
               {submitting ? (
-                <>
-                  <span className="spinner" aria-hidden="true" />
-                  Signing in…
-                </>
+                <><span className="spinner" aria-hidden="true" />Signing in…</>
               ) : (
                 'Log in to workspace'
               )}
             </button>
           </form>
 
-          <p className="login-quick-label">Demo quick logins (click to fill)</p>
+          {/* Register link */}
+          <p className="login-register-link">
+            Don&apos;t have an account?{' '}
+            <Link to="/register" className="login-link">Create one for free</Link>
+          </p>
+
+          {/* Demo quick-fills */}
+          <p className="login-quick-label">Demo quick logins (click to fill &amp; submit)</p>
           <div className="login-quick-demo">
             {DEMO_LOGINS.map((demo) => (
               <button
@@ -234,7 +211,7 @@ export default function LoginPage() {
           </div>
 
           <p className="login-disclaimer">
-            Demo only. Sign-in is checked in your browser. A real build needs server-side login, tokens and tenant isolation.
+            Preflight Demo — authenticates against the live BrandGuard API.
           </p>
         </div>
       </section>

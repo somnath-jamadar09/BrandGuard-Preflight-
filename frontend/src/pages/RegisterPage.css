@@ -1,0 +1,98 @@
+/* RegisterPage.css — supplemental styles for /register */
+
+/* Role list on left panel */
+.register-role-list {
+  list-style: none;
+  padding: 0;
+  margin: 2rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.register-role-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--color-brand, #2563eb);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0 6px 6px 0;
+}
+
+.register-role-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-text, #111);
+}
+
+.register-role-desc {
+  font-size: 0.78rem;
+  opacity: 0.72;
+}
+
+/* Register link below form */
+.login-register-link {
+  text-align: center;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  color: var(--color-text-secondary, #555);
+}
+
+.login-link {
+  color: var(--color-brand, #2563eb);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-link:hover {
+  text-decoration: underline;
+}
+
+/* Show/hide password toggle */
+.register-toggle-pass {
+  float: right;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-brand, #2563eb);
+  padding: 0;
+  font-weight: 600;
+}
+
+/* Optional badge */
+.register-optional {
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin-left: 0.25rem;
+}
+
+/* Hint text below org input */
+.register-hint {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.6;
+  margin-top: 0.25rem;
+}
+
+/* Wider card for register page to fit more fields */
+.register-page .login-card {
+  max-width: 440px;
+}
+
+/* Password strength hint */
+.register-strength {
+  font-size: 0.72rem;
+  margin-top: 0.2rem;
+}
+
+/* Dark-mode adjustments */
+[data-theme="dark"] .register-role-item {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .register-role-label {
+  color: var(--color-text, #f0f0f0);
+}
